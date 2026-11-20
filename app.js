@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.0.0';
+  const VERSION = '2.0.1';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -102,12 +102,24 @@
   const nombreCartera = (id) => (S.carteras.find((c) => c.id === id) || {}).nombre || '';
 
   /* ================= tema ================= */
+  // Barra de estado del iPhone (hora, wifi): siempre del color de fondo REAL de la app, no del modo del teléfono.
+  // Si la app está en Claro y el iPhone en Oscuro (o al revés), sin esto queda una franja negra/blanca arriba.
+  function pintarBarraEstado() {
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#F7F2EC';
+    let metas = document.querySelectorAll('meta[name="theme-color"]');
+    metas.forEach((m, i) => { if (i) m.remove(); });
+    let m = document.querySelector('meta[name="theme-color"]');
+    if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
+    m.removeAttribute('media'); m.setAttribute('content', bg);
+  }
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => pintarBarraEstado()); } catch (e) {}
   function aplicarTema() {
     const t = S.ajustes.tema;
     if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
     const root = document.documentElement.style;
     root.setProperty('--glass-tint', String(Math.min(1, Math.max(0, S.ajustes.vidrio ?? 0.35))));
     root.setProperty('--ui-zoom', S.ajustes.letraGrande ? '1.12' : '1');
+    requestAnimationFrame(pintarBarraEstado);
     // color de acento elegido (vacío = el naranja original)
     const c = S.ajustes.acento;
     ['--accent', '--accent-btn', '--accent-ink', '--accent-tint', '--aurora-1', '--aurora-2', '--aurora-3'].forEach((v) => root.removeProperty(v));
@@ -1757,6 +1769,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   /* ================= arranque ================= */
   (async function iniciar() {
     try { const t = localStorage.getItem(KEY_TEMA); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    pintarBarraEstado();   // antes del PIN, para que la pantalla de bloqueo ya tenga la barra del color correcto
     if (Seg.activo()) cargar(await Seg.pedirPin()); else cargar();
     aplicarTema(); listo = true;
     render();

@@ -34,6 +34,7 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] v2.0.0: Face ID. Llave de acceso del iPhone (WebAuthn, rpId = host) con extensión PRF: el secreto PRF cifra el PIN (AES-GCM) en `mis-inversiones:faceid`; al abrir, Face ID → PIN → datos. Botón en la pantalla del PIN + intento automático; si falla, PIN. Se borra al cambiar o quitar el PIN. Necesita iOS 18+. NO probado con una cara real: en el navegador de Claude se probó hasta «Confirmá tu PIN» (seguir crearía una llave real en la Mac) y la pantalla con Face ID simulado.
 - [x] Ojito en la barra: tapa (blur) montos, cantidades, ganancias y precio promedio; precios y cotizaciones quedan visibles. Preferencia en `mis-inversiones:ocultar`.
 - [x] «PPC» → «Prom. compra» en las tarjetas.
+- [x] v2.0.1: barra de estado del iPhone (theme-color) = fondo real de la app, se actualiza al cambiar Claro/Oscuro/Automático y antes del PIN. Antes seguía el modo del teléfono → franja negra si la app estaba en Claro. Pendiente confirmar en el iPhone que iOS la repinta en vivo.
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente
