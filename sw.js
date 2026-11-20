@@ -1,6 +1,6 @@
 /* Mis Inversiones — Copyright (c) 2026 Felipe Manrique. Todos los derechos reservados. */
 // Cache de la cáscara para abrir sin señal. SUBIR VERSION EN CADA CAMBIO (si no, los teléfonos nunca lo reciben).
-const VERSION = 'mis-inversiones-v2.1.0';
+const VERSION = 'mis-inversiones-v2.1.1';
 const PREFIJO = 'mis-inversiones-v';
 const SHELL = ['./', 'index.html', 'styles.css', 'seguridad.js', 'calc.js', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-32.png', 'icons/icon-maskable-512.png', 'apple-touch-icon.png'];
 
@@ -21,7 +21,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || url.origin !== location.origin) return;
   if (/\.webmanifest$|\/icons\/|apple-touch-icon|oauth\.html$/.test(url.pathname)) return;
   e.respondWith(
-    fetch(req).then((res) => {
+    // no-cache: siempre pregunta a GitHub si hay una versión nueva (GitHub Pages deja los archivos 10 min en caché)
+    fetch(req.mode === 'navigate' ? req.url : req, { cache: 'no-cache' }).then((res) => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
       return res;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then((r) => r || caches.match('index.html')))

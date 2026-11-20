@@ -517,6 +517,7 @@ body::after {
     color-mix(in srgb, var(--bg) 25%, transparent) 68%, color-mix(in srgb, var(--bg) 7%, transparent) 88%, transparent 100%);
 }
 .lock { background:
-    linear-gradient(to bottom, var(--bg) 0, color-mix(in srgb, var(--bg) 70%, transparent) 70px, transparent 160px),
+    linear-gradient(to bottom, var(--bg) 0%, var(--bg) calc(env(safe-area-inset-top, 0px) + 20px), color-mix(in srgb, var(--bg) 82%, transparent) calc(env(safe-area-inset-top, 0px) + 60px),
+      color-mix(in srgb, var(--bg) 45%, transparent) calc(env(safe-area-inset-top, 0px) + 130px), transparent calc(env(safe-area-inset-top, 0px) + 220px)),
     radial-gradient(70% 45% at 0% 0%, var(--aurora-1), transparent 70%), radial-gradient(60% 45% at 100% 100%, var(--aurora-3), transparent 70%),
     var(--bg); }
