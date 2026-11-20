@@ -42,6 +42,7 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] v2.4.0: al cambiar Claro/Oscuro/Automático en la app instalada, reinicio rápido (fundido 0,18 s) que vuelve a Ajustes; con PIN no lo vuelve a pedir: la CryptoKey del PIN se guarda 15 s en IndexedDB `mis-inversiones-sesion` y se borra al usarse (un reinicio común sí pide PIN; probado).
 - [x] v2.5.0: Ajustes es la 5.ª pestaña de la isla de abajo (como Mis Finanzas); en esa vista se oculta la barra superior (`body[data-vista=ajustes]`) y el título grande queda primero bajo la hora. Sin ruedita arriba ni flecha de volver.
 - [x] v2.6.0: Ajustes con el formato de Mis Finanzas (filas compactas agrupadas: desplegables para Apariencia/Actualizar/Bloquear, interruptores para Letra grande/PIN/Face ID; tarjetas para color de acento, cada persona y API Gemini; Gemini va al final arriba de Versión; «Nueva cartera»). Isla: + al principio (a pedido), pestañas Activos·Resumen·Seguir·Historial·Ajustes. Cambio de tema con velo del color nuevo y aparición suave. Avisos con tinte del acento.
+- [x] v2.7.0: activos compartidos con mezcla orgánica (base con transición ancha ±20 % + corrientes radiales de cada color que cruzan la frontera + remolino de la mezcla; posiciones derivadas de un hash de la clave del activo, estables; centro en la proporción real).
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente

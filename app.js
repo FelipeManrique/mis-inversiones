@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.6.0';
+  const VERSION = '2.7.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -521,12 +521,25 @@
   // Fondo de la tarjeta con el color del dueño; si es de los dos, mezcla con el corte en su proporción
   function fondoActivo(a) {
     const ps = partesActivo(a); if (!ps.length) return '';
-    const t = (c) => `color-mix(in srgb, ${c} var(--tinte), transparent)`;
+    const t = (c, f) => `color-mix(in srgb, ${c} calc(var(--tinte) * ${f || 1}), transparent)`;
     if (ps.length === 1) { const c = ps[0].p.color; return `background-image:linear-gradient(90deg, ${t(c)}, ${t(c)})`; }
-    // división vertical, de izquierda a derecha: cada uno ocupa su porcentaje, con un borde suave corto
-    const c1 = ps[0].p.color, c2 = ps[1].p.color, m = ps[0].f * 100, an = 2.5;
-    return `background-image:linear-gradient(90deg, ${t(c1)} 0%, ${t(c1)} ${Math.max(0, m - an).toFixed(1)}%, ${t(c2)} ${Math.min(100, m + an).toFixed(1)}%, ${t(c2)} 100%)`;
+    // Mezcla orgánica (como un río entrando al mar): base con transición ancha + corrientes de cada color
+    // que cruzan la frontera y un remolino de la mezcla en el centro. Las posiciones salen del nombre del
+    // activo, así cada tarjeta tiene su dibujo y siempre el mismo. El centro cae en la proporción real.
+    const c1 = ps[0].p.color, c2 = ps[1].p.color, m = ps[0].f * 100;
+    let h = 0; for (const ch of a.key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    const r = (n, min, max) => min + ((h >>> n) % 1000) / 1000 * (max - min);
+    const x = (d) => Math.max(4, Math.min(96, m + d)).toFixed(1);
+    const mezcla = `color-mix(in srgb, ${c1}, ${c2})`;
+    const capas = [
+      `radial-gradient(ellipse ${r(1, 16, 24).toFixed(0)}% ${r(3, 45, 70).toFixed(0)}% at ${x(-r(5, 3, 9))}% ${r(7, 12, 38).toFixed(0)}%, ${t(c2, .9)}, transparent 72%)`,
+      `radial-gradient(ellipse ${r(9, 16, 24).toFixed(0)}% ${r(11, 45, 70).toFixed(0)}% at ${x(r(13, 3, 9))}% ${r(15, 60, 88).toFixed(0)}%, ${t(c1, .9)}, transparent 72%)`,
+      `radial-gradient(ellipse ${r(17, 12, 18).toFixed(0)}% ${r(19, 35, 55).toFixed(0)}% at ${x(r(21, -4, 4))}% ${r(23, 35, 65).toFixed(0)}%, ${t(mezcla, .8)}, transparent 75%)`,
+      `linear-gradient(${r(25, 84, 96).toFixed(0)}deg, ${t(c1)} 0%, ${t(c1)} ${Math.max(0, m - 20).toFixed(1)}%, ${t(mezcla)} ${m.toFixed(1)}%, ${t(c2)} ${Math.min(100, m + 20).toFixed(1)}%, ${t(c2)} 100%)`,
+    ];
+    return 'background-image:' + capas.join(', ');
   }
+
 
 
   function tarjetaActivo(a) {
