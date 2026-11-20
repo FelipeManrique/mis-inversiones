@@ -467,3 +467,6 @@ input.switch:checked::after { transform: translateX(20px); }
 .sw.rueda { background: conic-gradient(#ff3b30, #ffcc00, #34c759, #00c7be, #007aff, #af52de, #ff2d55, #ff3b30); overflow: hidden; display: inline-block; }
 .sw.rueda input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }
 .mini-sel { border: 0; background: var(--fill); border-radius: 8px; font-size: 13px; padding: 6px 8px; max-width: 120px; color: var(--label); }
+.a-name .whos { display: flex; overflow: visible; white-space: normal; }
+.a-name .whos .who { display: inline-flex; overflow: visible; }
+.a-name .whos .who i { display: block; }

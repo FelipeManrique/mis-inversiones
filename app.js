@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.7.0';
+  const VERSION = '1.7.1';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -475,21 +475,36 @@
     const h = items.map((x) => `<span class="tk"><b>${esc(x[0])}</b><span class="num">${esc(x[1])}</span>${x[2] !== null && x[2] !== undefined ? `<span class="${x[2] > 0 ? 'pos' : x[2] < 0 ? 'neg' : ''}">${esc((x[2] > 0 ? '+' : '') + C.num(x[2], 1))}%</span>` : ''}</span>`).join('');
     return `<div class="tape" aria-label="Cotizaciones"><div class="tape-in">${h}${h}</div></div>`;
   }
+  // De quién es cada activo y en qué proporción (por cantidad que tiene cada uno hoy)
+  function partesActivo(a) {
+    if (S.ajustes.persona) { const p = persona(S.ajustes.persona); return p ? [{ p, f: 1 }] : []; }
+    const ps = S.personas.map((p) => ({ p, q: (C.calcular(a.movs, precioDe, fxHoy(), { persona: p.id, personaDefecto: personaDef() }).abiertos.find((x) => x.key === a.key) || {}).qty || 0 }));
+    const tot = ps.reduce((s0, x) => s0 + x.q, 0);
+    const out = tot ? ps.filter((x) => x.q > 0).map((x) => ({ p: x.p, f: x.q / tot })) : [];
+    let resto = 100; out.forEach((x, i) => { x.pct = i === out.length - 1 ? resto : Math.round(x.f * 100); resto -= x.pct; });
+    return out;
+  }
   function etiquetaTitular(a) {
     if (S.ajustes.persona) return '';
-    const partes = S.personas.map((p) => ({ p, q: C.calcular(a.movs, precioDe, fxHoy(), { persona: p.id, personaDefecto: personaDef() }).abiertos.find((x) => x.key === a.key) }));
-    const tot = partes.reduce((s, x) => s + (x.q ? x.q.qty : 0), 0);
-    if (!tot) return '';
-    const vivos = partes.filter((x) => x.q && x.q.qty > 0);
-    if (vivos.length === 1) return `<span class="whos">${chip(vivos[0].p.id, vivos[0].p.nombre)}</span>`;
-    return `<span class="whos">${vivos.map((x) => chip(x.p.id, x.p.nombre + ' ' + Math.round(x.q.qty / tot * 100) + '%')).join('')}</span>`;
+    const ps = partesActivo(a); if (!ps.length) return '';
+    if (ps.length === 1) return `<span class="whos">${chip(ps[0].p.id, ps[0].p.nombre)}</span>`;
+    return `<span class="whos">${ps.map((x) => chip(x.p.id, x.p.nombre + ' ' + x.pct + '%')).join('')}</span>`;
   }
+  // Fondo de la tarjeta con el color del dueño; si es de los dos, mezcla con el corte en su proporción
+  function fondoActivo(a) {
+    const ps = partesActivo(a); if (!ps.length) return '';
+    const t = (c, k) => `color-mix(in srgb, ${c} ${k}%, transparent)`;
+    if (ps.length === 1) { const c = ps[0].p.color; return `background-image:linear-gradient(100deg, ${t(c, 24)} 0%, ${t(c, 9)} 100%)`; }
+    const c1 = ps[0].p.color, c2 = ps[1].p.color, m = ps[0].f * 100, an = 14;
+    return `background-image:linear-gradient(100deg, ${t(c1, 22)} 0%, ${t(c1, 16)} ${Math.max(0, m - an).toFixed(1)}%, ${t(c2, 16)} ${Math.min(100, m + an).toFixed(1)}%, ${t(c2, 22)} 100%)`;
+  }
+
   function tarjetaActivo(a) {
     const q = a.cotiz, cl = C.CLASES[a.clase] || { corto: a.clase };
     const nom = S.nombres[a.key];
     const sub = a.cur === 'USD' ? `${esc(usd(a.valorUSD))} en dólares` : `${esc(usd(a.valor.ccl))} CCL`;
     const unidades = C.POR100[a.clase] ? 'VN' : 'u.';
-    return `<button class="asset" data-k="${esc(a.key)}">
+    return `<button class="asset" data-k="${esc(a.key)}" style="${esc(fondoActivo(a))}">
       <div class="a-top"><div class="badge" style="background:${COLOR_CLASE[a.clase] || 'var(--c8)'};font-size:${a.ticker.length > 4 ? 10 : 12}px">${esc(a.ticker.slice(0, 5))}</div>
         <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · ${esc(C.cantidad(a.qty))} ${unidades}${S.carteras.length > 1 && !S.ajustes.cartera ? ' · ' + esc(Object.keys(a.carteras).map(nombreCartera).filter(Boolean).join(', ')) : ''}</span>${etiquetaTitular(a)}</div>
         <div class="a-val"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span><span class="ccl num">${sub}</span></div></div>
