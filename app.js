@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.6.1';
+  const VERSION = '1.7.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -58,7 +58,7 @@
   /* ================= estado ================= */
   const VACIO = () => ({
     v: 1, movs: [], carteras: [{ id: 'principal', nombre: 'Principal' }],
-    personas: [{ id: 'yo', nombre: 'Yo', letra: 'M' }, { id: 'novia', nombre: 'Mi novia', letra: 'P' }],
+    personas: [{ id: 'yo', nombre: 'Yo', letra: 'M', color: '#FF8D28' }, { id: 'novia', nombre: 'Mi novia', letra: 'P', color: '#FF5C8A' }],
     seguir: [], manual: {}, nombres: {}, snaps: {}, fxCache: {},
     ajustes: { tema: '', intervalo: 30, cartera: '', persona: '' },
   });
@@ -68,7 +68,13 @@
   function cargar(x) {
     if (!x) { try { x = JSON.parse(localStorage.getItem(KEY)); } catch (e) { x = null; } }
     if (x && Array.isArray(x.movs)) S = Object.assign(VACIO(), x, { ajustes: Object.assign(VACIO().ajustes, x.ajustes) });
+    S.personas.forEach((p, i) => { if (!p.color) p.color = COLORES_PERSONA[i % COLORES_PERSONA.length]; });
   }
+  const COLORES_PERSONA = ['#FF8D28', '#FF5C8A', '#00A2B0', '#6155F5', '#34A853', '#FFB800'];
+  const colorDe = (pid) => ((S.personas.find((p) => p.id === pid) || {}).color) || '#8E8A85';
+  // Etiqueta de persona: punto de su color + nombre (reemplaza a las letras M/P)
+  const chip = (pid, txt) => `<span class="who" style="--pc:${esc(colorDe(pid))}"><i></i>${esc(txt)}</span>`;
+  const nombreDe = (pid) => (S.personas.find((p) => p.id === pid) || {}).nombre || '';
   // Con PIN activo todo se guarda cifrado (seguridad.js); sin PIN, en claro como Mis Finanzas.
   let tGuardar = null;
   function guardarYa() {
@@ -98,6 +104,9 @@
   function aplicarTema() {
     const t = S.ajustes.tema;
     if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+    const root = document.documentElement.style;
+    root.setProperty('--glass-tint', String(Math.min(1, Math.max(0, S.ajustes.vidrio ?? 0.35))));
+    root.setProperty('--ui-zoom', S.ajustes.letraGrande ? '1.12' : '1');
   }
 
   /* ================= aviso ================= */
@@ -375,9 +384,9 @@
     const r = calc(pg.id);
     const k = 'p' + i + ':';
     const g = r.ganancia;
-    return `<div class="hero vivid p${i}" data-p="${esc(pg.id)}">
+    return `<div class="hero vivid ${pg.id ? 'persona' : 'p0'}" data-p="${esc(pg.id)}"${pg.id ? ` style="--pc:${esc(colorDe(pg.id))}"` : ''}>
       <span class="orb a"></span><span class="orb b"></span><span class="orb c"></span>
-      <div class="hero-top"><span class="who">${esc(pg.nombre)}</span><span class="sp"></span>${S.ajustes.cartera ? `<span class="tag neu">${esc(nombreCartera(S.ajustes.cartera))}</span>` : ''}</div>
+      <div class="hero-top"><span class="who-t">${esc(pg.nombre)}</span><span class="sp"></span>${S.ajustes.cartera ? `<span class="tag neu">${esc(nombreCartera(S.ajustes.cartera))}</span>` : ''}</div>
       <span class="lbl">Valor actual</span>
       <div class="big">${anim(k + 'v', r.valor.ars, 'ars')}</div>
       <div class="usd">${anim(k + 'vo', r.valor.of, 'usd')} <span class="ccl">oficial</span></div>
@@ -472,8 +481,8 @@
     const tot = partes.reduce((s, x) => s + (x.q ? x.q.qty : 0), 0);
     if (!tot) return '';
     const vivos = partes.filter((x) => x.q && x.q.qty > 0);
-    if (vivos.length === 1) { const i = S.personas.indexOf(vivos[0].p); return `<span class="who-tag ${i ? 'p2' : ''}" title="${esc(vivos[0].p.nombre)}">${esc(vivos[0].p.letra)}</span>`; }
-    return `<span class="who-tag both">${vivos.map((x) => esc(x.p.letra) + ' ' + Math.round(x.q.qty / tot * 100) + '%').join(' · ')}</span>`;
+    if (vivos.length === 1) return `<span class="whos">${chip(vivos[0].p.id, vivos[0].p.nombre)}</span>`;
+    return `<span class="whos">${vivos.map((x) => chip(x.p.id, x.p.nombre + ' ' + Math.round(x.q.qty / tot * 100) + '%')).join('')}</span>`;
   }
   function tarjetaActivo(a) {
     const q = a.cotiz, cl = C.CLASES[a.clase] || { corto: a.clase };
@@ -482,7 +491,7 @@
     const unidades = C.POR100[a.clase] ? 'VN' : 'u.';
     return `<button class="asset" data-k="${esc(a.key)}">
       <div class="a-top"><div class="badge" style="background:${COLOR_CLASE[a.clase] || 'var(--c8)'};font-size:${a.ticker.length > 4 ? 10 : 12}px">${esc(a.ticker.slice(0, 5))}</div>
-        <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · ${esc(C.cantidad(a.qty))} ${unidades}</span>${etiquetaTitular(a)}</div>
+        <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · ${esc(C.cantidad(a.qty))} ${unidades}${S.carteras.length > 1 && !S.ajustes.cartera ? ' · ' + esc(Object.keys(a.carteras).map(nombreCartera).filter(Boolean).join(', ')) : ''}</span>${etiquetaTitular(a)}</div>
         <div class="a-val"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span><span class="ccl num">${sub}</span></div></div>
       <div class="spk" data-spk="${esc(a.key)}">${sparkDe(a)}</div>
       <div class="a-row">${q ? `<span class="num">Ahora ${esc(precioF(q.px, q.cur))}</span>${q.pct !== null && q.pct !== undefined ? `<span class="tag ${clsSigno(q.pct, 0.005)}">hoy ${esc(pctf(q.pct / 100))}</span>` : ''}` : '<span class="sinprecio">Sin precio: se muestra al costo</span>'}
@@ -539,8 +548,8 @@
       const rs = S.personas.map((p, i) => ({ p, i, r: calc(p.id) }));
       const tot = rs.reduce((s, x) => s + Math.max(0, x.r.valor.ars), 0) || 1;
       porPersona = `<div class="card"><h2>Entre los dos</h2>
-        <div class="split">${rs.map((x) => `<i style="width:${(Math.max(0, x.r.valor.ars) / tot * 100).toFixed(1)}%;background:${x.i ? '#FF6B5B' : 'var(--accent)'}"></i>`).join('')}</div>
-        <dl class="kv" style="grid-template-columns:1fr auto auto">${rs.map((x) => `<dt><span class="who-tag ${x.i ? 'p2' : ''}">${esc(x.p.letra)}</span> ${esc(x.p.nombre)}</dt>
+        <div class="split">${rs.map((x) => `<i style="width:${(Math.max(0, x.r.valor.ars) / tot * 100).toFixed(1)}%;background:${esc(x.p.color)}"></i>`).join('')}</div>
+        <dl class="kv" style="grid-template-columns:1fr auto auto">${rs.map((x) => `<dt>${chip(x.p.id, x.p.nombre)}</dt>
           <dd class="num">${esc(ars(x.r.valor.ars))}<small>ingresó ${esc(ars(x.r.capital.ars))}</small></dd>
           <dd class="num ${clsSigno(x.r.ganancia.ars)}">${esc(pctf(x.r.rend.ars))}<small>${esc(conSigno(x.r.ganancia.of, usd))} · ${esc(pctf(x.r.rend.of))}</small></dd>`).join('')}</dl></div>`;
     }
@@ -634,14 +643,14 @@
       html += filaMov(m);
     });
     if (mes) html += '</div>';
-    html += '<p class="foot">Las letras indican de quién es cada movimiento.</p>';
+    html += '<p class="foot">El color indica de quién es cada movimiento.</p>';
     $('v-movs').innerHTML = html;
     $('v-movs').querySelectorAll('[data-mov]').forEach((b) => { b.onclick = () => abrirForm(S.movs.find((m) => m.id === b.dataset.mov)); });
   }
   function letraMov(m) {
-    if (m.reparto) return `<span class="who-tag both">${S.personas.map((p) => esc(p.letra) + ' ' + Math.round(C.parteDe(m, p.id) * 100) + '%').join(' · ')}</span>`;
-    const p = persona(m.titular || personaDef()) || S.personas[0]; const i = S.personas.indexOf(p);
-    return `<span class="who-tag ${i ? 'p2' : ''}">${esc(p.letra)}</span>`;
+    if (m.reparto) return S.personas.map((p) => chip(p.id, p.nombre + ' ' + Math.round(C.parteDe(m, p.id) * 100) + '%')).join(' ');
+    const p = persona(m.titular || personaDef()) || S.personas[0];
+    return chip(p.id, p.nombre);
   }
   function filaMov(m) {
     const t = TIPOS[m.tipo] || TIPOS.compra;
@@ -707,10 +716,12 @@
       ${(clase === 'fci' || clase === 'otro') ? `<div class="card" style="background:var(--surface-2)"><h2>Valor a mano</h2><p class="muted" style="font-size:13px">Este tipo de activo no tiene precio en vivo. Cargá el valor de la cuotaparte o unidad cuando lo veas en tu broker.</p>
         <div class="cols"><label class="field"><span>Precio por unidad</span><input id="mpx" inputmode="decimal" value="${q ? esc(q.px) : ''}"></label><label class="field"><span>Moneda</span><select id="mcur"><option>ARS</option><option ${q && q.cur === 'USD' ? 'selected' : ''}>USD</option></select></label></div>
         <button class="btn sec" id="mguardar">Guardar valor</button></div>` : ''}
+      ${a ? htmlDuenoCartera(key) : ''}
       <div class="btns">${a && a.qty > 0 ? `<button class="btn" id="mas">Comprar más</button><button class="btn sec" id="vender">Vender</button>` : `<button class="btn" id="mas">Cargar compra</button>`}</div>
       ${a ? `<div class="month" style="margin:4px 4px 0">Movimientos</div><div class="group">${a.movs.slice().reverse().map(filaMov).join('')}</div>` : ''}`,
     (body) => {
       body.querySelector('#mas').onclick = () => abrirForm(null, { tipo: 'compra', clase, ticker });
+      if (a) montarDuenoCartera(body, key, ticker);
       const v = body.querySelector('#vender'); if (v) v.onclick = () => abrirForm(null, { tipo: 'venta', clase, ticker, cantidad: a.qty });
       body.querySelectorAll('[data-mov]').forEach((b) => { b.onclick = () => abrirForm(S.movs.find((m) => m.id === b.dataset.mov)); });
       const mg = body.querySelector('#mguardar');
@@ -734,6 +745,55 @@
     return sh;
   }
 
+  // Dueño y cartera de un activo: se cambian en TODOS sus movimientos (compras, ventas, rentas)
+  const movsDelActivo = (key) => S.movs.filter((m) => (m.tipo === 'compra' || m.tipo === 'venta' || m.tipo === 'renta') && m.ticker && C.clave(m.clase, m.ticker) === key);
+  function htmlDuenoCartera(key) {
+    const ms = movsDelActivo(key); if (!ms.length) return '';
+    const duenos = new Set(ms.map((m) => (m.reparto ? 'compartido:' + JSON.stringify(m.reparto) : m.titular || personaDef())));
+    const actual = duenos.size === 1 ? [...duenos][0].split(':')[0] : 'mixto';
+    const carts = new Set(ms.map((m) => m.cartera));
+    const cart = carts.size === 1 ? [...carts][0] : 'varias';
+    const r0 = ms.find((m) => m.reparto);
+    const pct0 = r0 && actual === 'compartido' ? Math.round(C.parteDe(r0, S.personas[0].id) * 100) : 50;
+    // reparto real hoy (por cantidad)
+    const partes = S.personas.map((p) => { const x = C.calcular(ms, precioDe, fxHoy(), { persona: p.id, personaDefecto: personaDef() }).abiertos.find((y) => y.key === key); return { p, q: x ? x.qty : 0 }; });
+    const tot = partes.reduce((s0, x) => s0 + x.q, 0);
+    return `<div class="card" style="background:var(--surface-2)" id="dueno"><h2>Dueño y cartera</h2>
+      ${tot ? `<div class="split">${partes.map((x) => `<i style="width:${(x.q / tot * 100).toFixed(1)}%;background:${esc(x.p.color)}"></i>`).join('')}</div>
+        <div class="whos">${partes.filter((x) => x.q > 0).map((x) => chip(x.p.id, x.p.nombre + ' ' + Math.round(x.q / tot * 100) + '%')).join('')}</div>` : ''}
+      <div class="cols"><label class="field"><span>De quién es</span><select id="dcDueno">
+          ${actual === 'mixto' ? '<option value="mixto" selected>Mezclado (como está)</option>' : ''}
+          ${S.personas.map((p) => `<option value="${esc(p.id)}" ${actual === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}
+          <option value="compartido" ${actual === 'compartido' ? 'selected' : ''}>Compartido</option></select></label>
+        <label class="field"><span>Cartera</span><select id="dcCart">
+          ${cart === 'varias' ? '<option value="varias" selected>Varias (como está)</option>' : ''}
+          ${S.carteras.map((c) => `<option value="${esc(c.id)}" ${cart === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label></div>
+      <label class="field" id="dcPctW" ${actual === 'compartido' ? '' : 'hidden'}><span>% de ${esc(S.personas[0].nombre)} (el resto, de ${esc(S.personas[1].nombre)})</span><input id="dcPct" inputmode="decimal" value="${pct0}"></label>
+      <p class="muted" style="font-size:13px">Se aplica a los ${ms.length} movimientos de este activo (compras, ventas y rentas). Los ingresos de dinero no se tocan.</p>
+      <button class="btn sec" id="dcOk" hidden>Aplicar cambio</button></div>`;
+  }
+  function montarDuenoCartera(body, key, ticker) {
+    const d = body.querySelector('#dcDueno'); if (!d) return;
+    const c = body.querySelector('#dcCart'), ok = body.querySelector('#dcOk'), pw = body.querySelector('#dcPctW');
+    const d0 = d.value, c0 = c.value;
+    const cambio = () => { pw.hidden = d.value !== 'compartido'; ok.hidden = d.value === d0 && c.value === c0 && d.value !== 'compartido'; };
+    d.onchange = cambio; c.onchange = cambio; body.querySelector('#dcPct').oninput = () => { ok.hidden = false; };
+    ok.onclick = () => {
+      const ms = movsDelActivo(key), partes = [];
+      if (d.value !== 'mixto' && (d.value !== d0 || d.value === 'compartido')) partes.push(d.value === 'compartido' ? 'compartido' : 'de ' + nombreDe(d.value));
+      if (c.value !== 'varias' && c.value !== c0) partes.push('en la cartera ' + nombreCartera(c.value));
+      if (!partes.length) return;
+      if (!confirm(`¿Pasar ${ticker} (${ms.length} movimientos) a ${partes.join(' y ')}?`)) return;
+      const pct = Math.max(0, Math.min(100, C.leerNumero(body.querySelector('#dcPct').value) || 50));
+      ms.forEach((m) => {
+        if (d.value === 'compartido') { m.reparto = { [S.personas[0].id]: pct, [S.personas[1].id]: 100 - pct }; delete m.titular; }
+        else if (d.value !== 'mixto') { m.titular = d.value; delete m.reparto; }
+        if (c.value !== 'varias') m.cartera = c.value;
+      });
+      guardar(); render(); toast(ticker + ' actualizado'); abrirActivo(key, { clase: key.split(':')[0], ticker });
+    };
+  }
+
   /* ---------- formulario de movimiento ---------- */
   const CAMPOS_POR_TIPO = {
     ingreso: ['monto', 'moneda', 'pesos'], retiro: ['monto', 'moneda'],
@@ -748,7 +808,7 @@
     return `<div class="form mf">
       <div class="cols"><label class="field"><span>Tipo</span><select data-f="tipo">${Object.keys(TIPOS).map((k) => opt(k, TIPOS[k].nombre, m.tipo === k)).join('')}</select></label>
         <label class="field"><span>Fecha</span><input type="date" data-f="fecha" value="${esc(m.fecha || hoyISO())}" max="${hoyISO()}"></label></div>
-      <div class="cols"><label class="field"><span>De quién</span><select data-f="quien">${quien === '' ? opt('', 'Elegí…', true) : ''}${S.personas.map((p) => opt(p.id, p.letra + ' · ' + p.nombre, quien === p.id)).join('')}${opt('compartido', 'Compartido', quien === 'compartido')}</select></label>
+      <div class="cols"><label class="field"><span>De quién</span><select data-f="quien">${quien === '' ? opt('', 'Elegí…', true) : ''}${S.personas.map((p) => opt(p.id, p.nombre, quien === p.id)).join('')}${opt('compartido', 'Compartido', quien === 'compartido')}</select></label>
         <label class="field" data-w="pct"><span>% de ${esc(S.personas[0].nombre)}</span><input data-f="pct" inputmode="decimal" value="${pct0}"></label></div>
       <div class="cols" data-w="clase"><label class="field"><span>Tipo de activo</span><select data-f="clase">${Object.keys(C.CLASES).map((k) => opt(k, C.CLASES[k].nombre, (m.clase || 'cedear') === k)).join('')}</select></label>
         <label class="field" data-w="ticker"><span>Ticker</span><input data-f="ticker" value="${esc(m.ticker || '')}" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="SPY, AL30, BTC"></label></div>
@@ -817,7 +877,8 @@
   }
   function abrirForm(mov, pre) {
     const nuevo = !mov;
-    const m = mov || Object.assign({ tipo: 'compra', fecha: hoyISO(), moneda: 'ARS', titular: S.ajustes.persona || personaDef() }, pre || {});
+    const duenaCart = (S.carteras.find((c) => c.id === S.ajustes.cartera) || {}).duena;
+    const m = mov || Object.assign({ tipo: 'compra', fecha: hoyISO(), moneda: 'ARS', titular: S.ajustes.persona || duenaCart || personaDef() }, pre || {});
     abrirHoja(nuevo ? 'Nuevo movimiento' : 'Editar movimiento', `${camposMov(m)}
       <div class="btns"><button class="btn wide" id="fGuardar">Guardar</button></div>
       ${nuevo ? '' : `<button class="btn danger wide" id="fBorrar">${I.trash}Borrar movimiento</button>`}`, (body) => {
@@ -861,8 +922,8 @@
   function elegirQuien() {
     if (!gemini.get()) { abrirAjustes(); return toast('Primero pegá tu clave de Gemini'); }
     abrirHoja('¿De quién son?', `<p class="muted">Todo lo que leas en estas capturas se carga a nombre de quien elijas. Después, en la revisión, podés cambiarlo movimiento por movimiento.</p>
-      <div class="group">${S.personas.map((p, i) => `<button class="item" data-q="${esc(p.id)}"><span class="who-tag ${i ? 'p2' : ''}" style="min-width:36px;height:36px;font-size:15px;border-radius:10px">${esc(p.letra)}</span><span class="tx"><b>${esc(i ? 'De ' + p.nombre.replace(/^Mi /, 'mi ') : 'Mías')}</b></span></button>`).join('')}
-        <button class="item" data-q="compartido"><span class="who-tag both" style="min-width:36px;height:36px;font-size:13px;border-radius:10px">½</span><span class="tx"><b>Compartidas</b><span>50 % y 50 %, se puede ajustar después</span></span></button></div>`, (body) => {
+      <div class="group">${S.personas.map((p) => `<button class="item" data-q="${esc(p.id)}"><span class="ic" style="background:${esc(p.color)};color:#fff;font-weight:800">${esc(p.nombre.slice(0, 1).toUpperCase())}</span><span class="tx"><b>De ${esc(p.nombre)}</b></span></button>`).join('')}
+        <button class="item" data-q="compartido"><span class="ic" style="background:linear-gradient(90deg, ${esc(S.personas[0].color)} 50%, ${esc(S.personas[1].color)} 50%);color:#fff;font-weight:800">½</span><span class="tx"><b>Compartidas</b><span>50 % y 50 %, se puede ajustar después</span></span></button></div>`, (body) => {
       body.querySelectorAll('[data-q]').forEach((b) => { b.onclick = () => { quienCaptura = b.dataset.q; window.pausarBloqueo(); $('fileIn').click(); }; });
     });
   }
@@ -1039,7 +1100,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   /* ---------- cartera ---------- */
   function abrirCarteras() {
     abrirHoja('Cartera', `<div class="group">
-      ${[{ id: '', nombre: 'Todas las carteras' }].concat(S.carteras).map((c) => `<button class="item" data-c="${esc(c.id)}"><span class="tx"><b>${esc(c.nombre)}</b></span>${(S.ajustes.cartera || '') === c.id ? `<span class="rt" style="color:var(--accent-ink)">✓</span>` : ''}</button>`).join('')}</div>
+      ${[{ id: '', nombre: 'Todas las carteras' }].concat(S.carteras).map((c) => `<button class="item" data-c="${esc(c.id)}"><span class="tx"><b>${esc(c.nombre)}</b>${c.id ? `<span>${c.duena ? 'De ' + esc(nombreDe(c.duena)) : 'Compartida'}</span>` : ''}</span>${(S.ajustes.cartera || '') === c.id ? `<span class="rt" style="color:var(--accent-ink)">✓</span>` : ''}</button>`).join('')}</div>
       <button class="btn sec wide" id="cNueva">${I.plus}Nueva cartera</button>
       <p class="foot">Separá por objetivo (largo plazo, cripto, ahorro de viaje). Las personas se eligen deslizando el panel de arriba.</p>`, (body) => {
       body.querySelectorAll('[data-c]').forEach((b) => { b.onclick = () => { S.ajustes.cartera = b.dataset.c; guardar(); cerrarHoja(); render(); }; });
@@ -1052,20 +1113,26 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     const t = S.ajustes.tema || '';
     abrirHoja('Ajustes', `
       <div class="card" style="background:var(--surface-2)"><h2>Apariencia</h2>
-        <div class="seg" id="aTema"><button data-val="" class="${t === '' ? 'on' : ''}">Automático</button><button data-val="light" class="${t === 'light' ? 'on' : ''}">Claro</button><button data-val="dark" class="${t === 'dark' ? 'on' : ''}">Oscuro</button></div></div>
+        <div class="seg" id="aTema"><button data-val="" class="${t === '' ? 'on' : ''}">Automático</button><button data-val="light" class="${t === 'light' ? 'on' : ''}">Claro</button><button data-val="dark" class="${t === 'dark' ? 'on' : ''}">Oscuro</button></div>
+        <span class="hint" style="padding:6px 0 0">Vidrio: más transparente o más fácil de leer</span>
+        <label class="range-row"><span>Transparente</span><input type="range" id="aVidrio" min="0" max="1" step="0.05" value="${S.ajustes.vidrio ?? 0.35}" aria-label="Transparencia del vidrio"><span>Esmerilado</span></label>
+        <label class="toggle-row"><span>Letra grande<small>Agranda textos y botones</small></span><input type="checkbox" id="aGrande" class="switch" ${S.ajustes.letraGrande ? 'checked' : ''}></label></div>
       <div class="card" style="background:var(--surface-2)"><h2>Actualizar precios cada</h2>
         <div class="seg" id="aInt">${[15, 30, 60].map((s) => `<button data-val="${s}" class="${S.ajustes.intervalo === s ? 'on' : ''}">${s} s</button>`).join('')}</div>
         <p class="muted" style="font-size:13px">Sólo mientras la app está abierta. Las cripto se mueven 24/7; acciones y bonos argentinos, en horario de mercado (11 a 17 h).</p></div>
       <div class="card" style="background:var(--surface-2)"><h2>Personas</h2>
-        ${S.personas.map((p, i) => `<div class="cols"><label class="field"><span>Nombre</span><input data-pn="${i}" value="${esc(p.nombre)}" maxlength="24"></label><label class="field"><span>Letra en las capturas</span><input data-pl="${i}" value="${esc(p.letra)}" maxlength="1" autocapitalize="characters"></label></div>`).join('')}
-        <button class="btn sec" id="aPersonas">Guardar nombres</button></div>
+        ${S.personas.map((p, i) => `<div class="persona-row"><label class="field" style="flex:1"><span>Nombre</span><input data-pn="${i}" value="${esc(p.nombre)}" maxlength="24"></label>
+          <div class="field"><span>Color</span><div class="paleta">${COLORES_PERSONA.map((c) => `<button class="sw${p.color.toLowerCase() === c.toLowerCase() ? ' on' : ''}" data-pc="${i}" data-c="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join('')}
+            <label class="sw rueda" aria-label="Elegir otro color"><input type="color" data-pcw="${i}" value="${esc(p.color)}"></label></div></div></div>`).join('')}
+        <p class="muted" style="font-size:13px">El color de cada uno se usa en su panel de arriba, en las etiquetas y en «Entre los dos». La rueda abre todos los colores del teléfono.</p>
+        <button class="btn sec" id="aPersonas">Guardar</button></div>
       <div class="card" style="background:var(--surface-2)"><h2>Lectura de capturas (Gemini)</h2>
         <p class="muted" style="font-size:13px">Pegá una clave gratuita de Google AI Studio (<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent-ink)">aistudio.google.com/apikey</a>). Queda guardada sólo en este teléfono y no se incluye en las copias. Plan gratis: unas 20 lecturas por día.</p>
         <label class="field"><span>Clave</span><input id="aKey" type="password" autocomplete="off" placeholder="${gemini.get() ? '•••••••• (guardada)' : 'AIza…'}"></label>
         <div class="btns"><button class="btn sec" id="aKeyOk">Guardar y probar</button>${gemini.get() ? '<button class="btn gray" id="aKeyTest">Probar clave</button><button class="btn danger" id="aKeyDel">Quitar</button>' : ''}</div>
         <p class="muted" id="aKeyRes" style="font-size:13px" hidden></p></div>
       <div class="card" style="background:var(--surface-2)"><h2>Carteras</h2>
-        <div class="group" style="box-shadow:none;background:transparent">${S.carteras.map((c) => `<div class="item" style="padding:6px 0"><span class="tx"><b>${esc(c.nombre)}</b><span>${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span><button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}</div></div>
+        <div class="group" style="box-shadow:none;background:transparent">${S.carteras.map((c) => `<div class="item" style="padding:6px 0"><span class="tx"><b>${esc(c.nombre)}</b><span>${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span><select class="mini-sel" data-duena="${esc(c.id)}" aria-label="Dueño de ${esc(c.nombre)}"><option value="">Compartida</option>${S.personas.map((p) => `<option value="${esc(p.id)}" ${c.duena === p.id ? 'selected' : ''}>De ${esc(p.nombre)}</option>`).join('')}</select><button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}</div></div>
       ${htmlNubeAjustes()}
       <div class="card" style="background:var(--surface-2)"><h2>PIN de ingreso</h2>
         ${Seg.activo() ? `<p class="muted" style="font-size:13px">Activo. Tus datos en este teléfono están cifrados con tu PIN (AES-256). Tras 5 intentos fallidos la app hace esperar, cada vez más.</p>
@@ -1082,15 +1149,25 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
       <p class="foot">Mis Inversiones ${VERSION} · Precios: data912, Binance, dolarapi y ArgentinaDatos. Sólo organiza tus datos; no es asesoramiento financiero.</p>`, (body) => {
       body.querySelectorAll('#aTema button').forEach((b) => { b.onclick = () => { S.ajustes.tema = b.dataset.val; guardar(); aplicarTema(); body.querySelectorAll('#aTema button').forEach((x) => x.classList.toggle('on', x === b)); }; });
       body.querySelectorAll('#aInt button').forEach((b) => { b.onclick = () => { S.ajustes.intervalo = +b.dataset.val; guardar(); programar(); body.querySelectorAll('#aInt button').forEach((x) => x.classList.toggle('on', x === b)); }; });
-      body.querySelector('#aPersonas').onclick = () => {
-        const letras = new Set();
-        for (let i = 0; i < S.personas.length; i++) {
-          const n = body.querySelector(`[data-pn="${i}"]`).value.trim(), l = body.querySelector(`[data-pl="${i}"]`).value.trim().toUpperCase();
-          if (!n || !l) return toast('Completá nombre y letra'); if (letras.has(l)) return toast('Cada persona necesita una letra distinta'); letras.add(l);
-        }
-        S.personas.forEach((p, i) => { p.nombre = body.querySelector(`[data-pn="${i}"]`).value.trim(); p.letra = body.querySelector(`[data-pl="${i}"]`).value.trim().toUpperCase(); });
-        guardar(); render(); toast('Nombres guardados');
+      const vid = body.querySelector('#aVidrio');
+      vid.oninput = () => { S.ajustes.vidrio = +vid.value; aplicarTema(); };
+      vid.onchange = () => guardar();
+      body.querySelector('#aGrande').onchange = (e) => { S.ajustes.letraGrande = e.target.checked; aplicarTema(); guardar(); };
+      const colores = S.personas.map((p) => p.color);
+      const marcar = (i) => {
+        let en = false;
+        body.querySelectorAll(`[data-pc="${i}"]`).forEach((b) => { const si = b.dataset.c.toLowerCase() === colores[i].toLowerCase(); en = en || si; b.classList.toggle('on', si); });
+        const ru = body.querySelector(`[data-pcw="${i}"]`).parentElement; ru.classList.toggle('on', !en); ru.style.boxShadow = en ? '' : `inset 0 0 0 7px ${colores[i]}`;
       };
+      S.personas.forEach((p, i) => marcar(i));
+      body.querySelectorAll('[data-pc]').forEach((b) => { b.onclick = () => { const i = +b.dataset.pc; colores[i] = b.dataset.c; body.querySelector(`[data-pcw="${i}"]`).value = b.dataset.c; marcar(i); }; });
+      body.querySelectorAll('[data-pcw]').forEach((inp) => { inp.oninput = () => { const i = +inp.dataset.pcw; colores[i] = inp.value; marcar(i); }; });
+      body.querySelector('#aPersonas').onclick = () => {
+        for (let i = 0; i < S.personas.length; i++) if (!body.querySelector(`[data-pn="${i}"]`).value.trim()) return toast('Completá los nombres');
+        S.personas.forEach((p, i) => { p.nombre = body.querySelector(`[data-pn="${i}"]`).value.trim(); p.color = colores[i]; });
+        guardar(); ['v-activos', 'v-resumen'].forEach((id) => { $(id).innerHTML = ''; }); render(); toast('Personas guardadas');
+      };
+      body.querySelectorAll('[data-duena]').forEach((sel) => { sel.onchange = () => { const c = S.carteras.find((x) => x.id === sel.dataset.duena); if (sel.value) c.duena = sel.value; else delete c.duena; guardar(); render(); toast(c.nombre + ': ' + (sel.value ? 'de ' + nombreDe(sel.value) : 'compartida')); }; });
       const resKey = body.querySelector('#aKeyRes');
       const probar = async (k, btn) => {
         btn.disabled = true; const t = btn.textContent; btn.textContent = 'Probando…';
