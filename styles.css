@@ -549,3 +549,49 @@ body[data-vista="ajustes"] .topbar { display: none; }
 body[data-vista="ajustes"] main { padding-top: calc(env(safe-area-inset-top) + 14px); }
 .tabbar button { min-width: 58px; }
 @media (max-width: 400px) { .tabbar button { min-width: 0; padding: 6px 7px 5px; font-size: 9.5px; } .tabbar button svg.i { width: 22px; height: 22px; } .dock { gap: 8px; padding: 0 8px; } }
+
+/* ===== Ajustes al estilo Mis Finanzas: filas compactas ===== */
+.sec-t { margin: 22px 6px 8px; font-size: 13px; font-weight: 600; color: var(--label-2); text-transform: uppercase; letter-spacing: .4px; }
+.large-title + .sec-t { margin-top: 6px; }
+.lista { background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-card); overflow: hidden; }
+.fila { display: flex; align-items: center; gap: 10px; padding: 11px 16px; min-height: 50px; position: relative; width: 100%; border: 0; background: none; text-align: left; font-size: 17px; color: var(--label); }
+.fila + .fila::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: .5px; background: var(--separator); }
+.fila .grow { flex: 1; min-width: 0; }
+.fila .sub { display: block; font-size: 13px; color: var(--label-2); line-height: 17px; margin-top: 2px; }
+.fila .val { color: var(--label-2); }
+.fila .chev { width: 14px; height: 14px; fill: none; stroke: var(--label-3); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.fila select { border: 0; background: none; color: var(--label-2); text-align: right; font-size: 16px; max-width: 55%; outline: none; appearance: none; -webkit-appearance: none; padding-right: 2px; }
+.fila.link { color: var(--accent-ink); }
+.fila.danger { color: var(--loss); }
+.fila.apilada { display: grid; gap: 10px; }
+.fila .mini-sel { max-width: 110px; }
+.fila .link { padding: 6px 2px; font-size: 14px; }
+.fila:active:not(.apilada):not(label) { background: var(--fill); }
+.punto { width: 22px; height: 22px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.paleta.grande { gap: 14px; justify-content: flex-start; }
+.paleta.grande .sw { width: 40px; height: 40px; }
+
+/* ===== Isla de pestañas a todo el ancho con el + en el medio (como Mis Finanzas) ===== */
+.dock { padding: 0 12px; }
+.tabbar { flex: 1; max-width: 560px; justify-content: space-around; align-items: center; padding: 4px; }
+.tabbar button[data-v] { flex: 1; min-width: 0; padding: 6px 2px 5px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tabbar .tab-mas { flex: none; width: 50px; height: 50px; margin: 0 2px; border: 0; border-radius: 50%; display: grid; place-items: center; color: #fff;
+  background: var(--accent-btn); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent), inset 0 1px 0 rgba(255,255,255,.35); }
+.tabbar .tab-mas svg.i { width: 26px; height: 26px; stroke-width: 2.4; }
+.tabbar .tab-mas:active { transform: scale(.94); transition: transform .15s var(--snappy); }
+.tabbar .tab-mas { min-width: 50px; padding: 0; }
+/* cambio de tema sin parpadeo: velo del color nuevo antes de reiniciar y aparición suave al volver */
+.velo { position: fixed; inset: 0; z-index: 200; opacity: 0; transition: opacity .3s var(--ease); pointer-events: none; }
+.velo.on { opacity: 1; }
+body.entra-suave main, body.entra-suave .dock { animation: entraSuave .55s var(--ease); }
+@keyframes entraSuave { from { opacity: 0; } }
+.tabbar .tab-mas { margin: 0 4px 0 0; }
+/* avisos flotantes con una pizca del color de acento */
+.toast {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--accent) 35%, transparent), var(--shadow-elevated);
+  font-weight: 500;
+}
+.toast #toastMsg { display: flex; align-items: center; gap: 10px; }
+.toast #toastMsg::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+.toast button { background: color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 999px; padding: 6px 12px; }

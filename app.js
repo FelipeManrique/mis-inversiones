@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.5.0';
+  const VERSION = '2.6.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1211,89 +1211,198 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     el.innerHTML = `<h2 class="large-title">Ajustes</h2>` + html;
     montar(el);
   }
+  // Ajustes con el formato de Mis Finanzas: filas compactas agrupadas; lo que tiene opciones se abre en una tarjeta
+  const CHEV = '<svg class="chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>';
+  const filaIr = (id, titulo, sub, derecha) => `<button class="fila" id="${id}"><span class="grow">${titulo}${sub ? `<span class="sub">${sub}</span>` : ''}</span>${derecha || ''}${CHEV}</button>`;
+  const punto = (c) => `<span class="punto" style="background:${esc(c)}"></span>`;
+  const opcion = (v, txt, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(txt)}</option>`;
+
   function abrirAjustes() {
     cerrarHoja(true);
     if (vista !== 'ajustes') { vistaPrev = vista; irA('ajustes'); }
     const t = S.ajustes.tema || '';
+    const pin = Seg.activo();
+    const demo = S.movs.some((m) => m.demo);
     paginaAjustes(`
-      <div class="card" style="background:var(--surface-2)"><h2>Apariencia</h2>
-        <div class="seg" id="aTema"><button data-val="" class="${t === '' ? 'on' : ''}">Automático</button><button data-val="light" class="${t === 'light' ? 'on' : ''}">Claro</button><button data-val="dark" class="${t === 'dark' ? 'on' : ''}">Oscuro</button></div>
-        <span class="hint" style="padding:6px 0 0">Vidrio: más transparente o más fácil de leer</span>
-        <label class="range-row"><span>Transparente</span><input type="range" id="aVidrio" min="0" max="1" step="0.05" value="${S.ajustes.vidrio ?? 0.35}" aria-label="Transparencia del vidrio"><span>Esmerilado</span></label>
-        <span class="hint" style="padding:6px 0 0">Color de acento</span>
-        <div class="paleta" id="aAcento">${ACENTOS.map((c, i) => `<button class="sw${(S.ajustes.acento || '') === (i ? c : '') ? ' on' : ''}" data-ac="${i ? c : ''}" style="background:${c}" aria-label="${i ? 'Acento ' + c : 'Naranja original'}"></button>`).join('')}
-          <label class="sw rueda${S.ajustes.acento && !ACENTOS.includes(S.ajustes.acento) ? ' on' : ''}" aria-label="Elegir otro color"><input type="color" id="aAcentoRueda" value="${esc(S.ajustes.acento || '#FF8D28')}"></label></div>
-        <label class="toggle-row"><span>Letra grande<small>Agranda textos y botones</small></span><input type="checkbox" id="aGrande" class="switch" ${S.ajustes.letraGrande ? 'checked' : ''}></label></div>
-      <div class="card" style="background:var(--surface-2)"><h2>Actualizar precios cada</h2>
-        <div class="seg" id="aInt">${[15, 30, 60].map((s) => `<button data-val="${s}" class="${S.ajustes.intervalo === s ? 'on' : ''}">${s} s</button>`).join('')}</div>
-        <p class="muted" style="font-size:13px">Sólo mientras la app está abierta. Las cripto se mueven 24/7; acciones y bonos argentinos, en horario de mercado (11 a 17 h).</p></div>
-      <div class="card" style="background:var(--surface-2)"><h2>Personas</h2>
-        ${S.personas.map((p, i) => `<div class="persona-row"><label class="field" style="flex:1"><span>Nombre</span><input data-pn="${i}" value="${esc(p.nombre)}" maxlength="24"></label>
-          <div class="field"><span>Color</span><div class="paleta">${COLORES_PERSONA.map((c) => `<button class="sw${p.color.toLowerCase() === c.toLowerCase() ? ' on' : ''}" data-pc="${i}" data-c="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join('')}
-            <label class="sw rueda" aria-label="Elegir otro color"><input type="color" data-pcw="${i}" value="${esc(p.color)}"></label></div></div></div>`).join('')}
-        <p class="muted" style="font-size:13px">El color de cada uno se usa en su panel de arriba, en las etiquetas y en «Entre los dos». La rueda abre todos los colores del teléfono.</p>
-        <button class="btn sec" id="aPersonas">Guardar</button></div>
-      <div class="card" style="background:var(--surface-2)"><h2>Lectura de capturas (Gemini)</h2>
-        <p class="muted" style="font-size:13px">Pegá una clave gratuita de Google AI Studio (<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent-ink)">aistudio.google.com/apikey</a>). Queda guardada sólo en este teléfono y no se incluye en las copias. Plan gratis: unas 20 lecturas por día.</p>
-        <label class="field"><span>Clave</span><input id="aKey" type="password" autocomplete="off" placeholder="${gemini.get() ? '•••••••• (guardada)' : 'AIza…'}"></label>
-        <div class="btns"><button class="btn sec" id="aKeyOk">Guardar y probar</button>${gemini.get() ? '<button class="btn gray" id="aKeyTest">Probar clave</button><button class="btn danger" id="aKeyDel">Quitar</button>' : ''}</div>
-        <p class="muted" id="aKeyRes" style="font-size:13px" hidden></p></div>
-      <div class="card" style="background:var(--surface-2)"><h2>Carteras</h2>
-        <div class="group" style="box-shadow:none;background:transparent">${S.carteras.map((c) => `<div class="item" style="padding:6px 0"><span class="tx"><b>${esc(c.nombre)}</b><span>${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span><select class="mini-sel" data-duena="${esc(c.id)}" aria-label="Dueño de ${esc(c.nombre)}"><option value="">Compartida</option>${S.personas.map((p) => `<option value="${esc(p.id)}" ${c.duena === p.id ? 'selected' : ''}>De ${esc(p.nombre)}</option>`).join('')}</select><button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}</div>
-        ${S.carteras.length > 1 ? '<button class="btn sec" id="aMover">Mover movimientos entre carteras</button>' : ''}<div></div></div>
-      ${htmlNubeAjustes()}
-      <div class="card" style="background:var(--surface-2)"><h2>PIN de ingreso</h2>
-        ${Seg.activo() ? `<p class="muted" style="font-size:13px">Activo. Tus datos en este teléfono están cifrados con tu PIN (AES-256). Tras 5 intentos fallidos la app hace esperar, cada vez más.</p>
-          <span class="hint" style="padding:0">Bloquear al salir de la app</span>
-          <div class="seg" id="aBloq">${[[0, 'Al instante'], [60, '1 min'], [300, '5 min']].map((x) => `<button data-val="${x[0]}" class="${(S.ajustes.bloqueo ?? 60) === x[0] ? 'on' : ''}">${x[1]}</button>`).join('')}</div>
-          <label class="toggle-row"><span>Desbloquear con Face ID<small id="aBioTxt">${Seg.bioActivo() ? 'Activo en este teléfono. Si falla, usás el PIN.' : 'Abrí la app mirando el teléfono. El PIN queda de respaldo.'}</small></span><input type="checkbox" id="aBio" class="switch" ${Seg.bioActivo() ? 'checked' : ''}></label>
-          <div class="btns"><button class="btn sec" id="aPinCambiar">Cambiar PIN</button><button class="btn danger" id="aPinQuitar">Quitar PIN</button></div>`
-        : `<p class="muted" style="font-size:13px">Pedí un PIN cada vez que abras la app. Además, los datos guardados en el teléfono quedan cifrados con ese PIN.</p><button class="btn sec" id="aPinOn">Activar PIN</button>`}
-        <p class="muted" style="font-size:13px">Si olvidás el PIN no hay forma de recuperar los datos: bajá cada tanto una copia cifrada.</p></div>
-      <div class="card" style="background:var(--surface-2)"><h2>Tus datos</h2>
-        <p class="muted" style="font-size:13px">Todo se guarda sólo en este dispositivo. La copia se baja cifrada con una contraseña que elegís (mismo cifrado que Mis Finanzas).</p>
-        <div class="btns"><button class="btn sec" id="aExp">Bajar copia cifrada</button><button class="btn gray" id="aImp">Importar archivo</button></div>
-        ${S.movs.some((m) => m.demo) ? '<button class="btn gray" id="aDemo">Borrar datos de ejemplo</button>' : ''}
-        <button class="btn danger" id="aBorrar">Borrar todo</button></div>
-      <div class="card" style="background:var(--surface-2)"><h2>Versión</h2>
-        <p style="margin:0;font-size:15px">Estás usando <b>Mis Inversiones ${VERSION}</b></p>
-        <button class="btn sec" id="aUpd">Buscar actualización</button>
-        <p class="muted" style="font-size:13px">Trae la última versión publicada y vuelve a abrir la app. Tus datos no se tocan.</p></div>
+      <h3 class="sec-t">Preferencias</h3>
+      <div class="lista">
+        <label class="fila"><span class="grow">Apariencia</span><select id="aTema">${opcion('', 'Automática', t === '')}${opcion('light', 'Clara', t === 'light')}${opcion('dark', 'Oscura', t === 'dark')}</select></label>
+        <div class="fila apilada"><span>Vidrio<span class="sub">Más transparente o más fácil de leer</span></span>
+          <label class="range-row"><span>Transparente</span><input type="range" id="aVidrio" min="0" max="1" step="0.05" value="${S.ajustes.vidrio ?? 0.35}" aria-label="Transparencia del vidrio"><span>Esmerilado</span></label></div>
+        ${filaIr('aAcento', 'Color de acento', '', punto(S.ajustes.acento || ACENTOS[0]))}
+        <label class="fila"><span class="grow">Letra grande<span class="sub">Agranda textos y botones</span></span><input type="checkbox" id="aGrande" class="switch" ${S.ajustes.letraGrande ? 'checked' : ''}></label>
+        <label class="fila"><span class="grow">Actualizar precios<span class="sub">Mientras la app está abierta</span></span><select id="aInt">${[15, 30, 60].map((x) => opcion(x, 'Cada ' + x + ' s', (S.ajustes.intervalo || 30) === x)).join('')}</select></label>
+      </div>
+
+      <h3 class="sec-t">Personas</h3>
+      <div class="lista">${S.personas.map((p, i) => filaIr('aPers' + i, esc(p.nombre), i ? '' : 'Vos', punto(p.color))).join('')}</div>
+
+      <h3 class="sec-t">Carteras</h3>
+      <div class="lista">${S.carteras.map((c) => `<div class="fila"><span class="grow">${esc(c.nombre)}<span class="sub">${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span>
+          <select class="mini-sel" data-duena="${esc(c.id)}" aria-label="Dueño de ${esc(c.nombre)}"><option value="">Compartida</option>${S.personas.map((p) => opcion(p.id, 'De ' + p.nombre, c.duena === p.id)).join('')}</select>
+          <button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}
+        <button class="fila link" id="aNuevaCart">Nueva cartera</button>
+        ${S.carteras.length > 1 ? '<button class="fila link" id="aMover">Mover movimientos entre carteras</button>' : ''}</div>
+
+      <h3 class="sec-t">Copia en Google Drive</h3>
+      <div class="lista">${nubeOn() ? `<div class="fila"><span class="grow">${esc(nube.email || 'Cuenta de Google')}<span class="sub" id="nubeEstado"></span></span></div>
+          <button class="fila link" id="nAhora">Subir copia ahora</button>
+          <button class="fila link" id="nRest">Restaurar desde Drive</button>
+          <button class="fila link" id="nPass">Cambiar contraseña de copias</button>
+          <button class="fila danger" id="nOff">Desconectar</button>`
+        : `<div class="fila apilada"><span class="sub" style="margin:0">Cada cambio se guarda solo en tu Drive, cifrado con una contraseña tuya. Si cambiás de teléfono, recuperás todo.</span>${botonGoogle('nGo')}</div>`}</div>
+
+      <h3 class="sec-t">Seguridad</h3>
+      <div class="lista">
+        <label class="fila"><span class="grow">PIN de ingreso<span class="sub">${pin ? 'Activo: tus datos están cifrados' : 'Pide un PIN al abrir y cifra tus datos'}</span></span><input type="checkbox" id="aPinSw" class="switch" ${pin ? 'checked' : ''}></label>
+        ${pin ? `<label class="fila"><span class="grow">Face ID<span class="sub">${Seg.bioActivo() ? 'Activo. Si falla, usás el PIN' : 'Abrí la app mirando el teléfono'}</span></span><input type="checkbox" id="aBio" class="switch" ${Seg.bioActivo() ? 'checked' : ''}></label>
+          <label class="fila"><span class="grow">Bloquear al salir</span><select id="aBloq">${[[0, 'Al instante'], [60, 'Después de 1 min'], [300, 'Después de 5 min']].map((x) => opcion(x[0], x[1], (S.ajustes.bloqueo ?? 60) === x[0])).join('')}</select></label>
+          <button class="fila link" id="aPinCambiar">Cambiar PIN</button>` : ''}
+      </div>
+
+      <h3 class="sec-t">Tus datos</h3>
+      <div class="lista">
+        <button class="fila link" id="aExp">Bajar copia cifrada</button>
+        <button class="fila link" id="aImp">Importar archivo</button>
+        ${demo ? '<button class="fila danger" id="aDemo">Borrar datos de ejemplo</button>' : ''}
+        <button class="fila danger" id="aBorrar">Borrar todo</button>
+      </div>
+
+      <h3 class="sec-t">Lectura de capturas</h3>
+      <div class="lista">${filaIr('aGemini', 'API Gemini', gemini.get() ? 'Configurada' : 'Sin configurar', '')}</div>
+
+      <h3 class="sec-t">Versión</h3>
+      <div class="lista">
+        <div class="fila"><span class="grow">Mis Inversiones</span><span class="val">${VERSION}</span></div>
+        <button class="fila link" id="aUpd">Buscar actualización</button>
+      </div>
       <p class="foot">Precios: data912, Binance, dolarapi y ArgentinaDatos. Sólo organiza tus datos; no es asesoramiento financiero.</p>`, (body) => {
-      body.querySelectorAll('#aTema button').forEach((b) => { b.onclick = () => { if (S.ajustes.tema === b.dataset.val) return; S.ajustes.tema = b.dataset.val; guardar(); aplicarTema(); body.querySelectorAll('#aTema button').forEach((x) => x.classList.toggle('on', x === b)); reiniciarPorTema(); }; });
-      body.querySelectorAll('#aInt button').forEach((b) => { b.onclick = () => { S.ajustes.intervalo = +b.dataset.val; guardar(); programar(); body.querySelectorAll('#aInt button').forEach((x) => x.classList.toggle('on', x === b)); }; });
-      const vid = body.querySelector('#aVidrio');
-      vid.oninput = () => { S.ajustes.vidrio = +vid.value; aplicarTema(); };
-      vid.onchange = () => guardar();
-      const ponerAcento = (c) => {
-        S.ajustes.acento = c; aplicarTema(); guardar();
-        body.querySelectorAll('#aAcento [data-ac]').forEach((b) => b.classList.toggle('on', b.dataset.ac === c));
-        body.querySelector('#aAcentoRueda').parentElement.classList.toggle('on', !!c && !ACENTOS.includes(c));
-      };
-      body.querySelectorAll('#aAcento [data-ac]').forEach((b) => { b.onclick = () => ponerAcento(b.dataset.ac); });
-      body.querySelector('#aAcentoRueda').oninput = (e) => ponerAcento(e.target.value);
-      body.querySelector('#aGrande').onchange = (e) => { S.ajustes.letraGrande = e.target.checked; aplicarTema(); guardar(); };
-      const colores = S.personas.map((p) => p.color);
-      const marcar = (i) => {
-        let en = false;
-        body.querySelectorAll(`[data-pc="${i}"]`).forEach((b) => { const si = b.dataset.c.toLowerCase() === colores[i].toLowerCase(); en = en || si; b.classList.toggle('on', si); });
-        const ru = body.querySelector(`[data-pcw="${i}"]`).parentElement; ru.classList.toggle('on', !en); ru.style.boxShadow = en ? '' : `inset 0 0 0 7px ${colores[i]}`;
-      };
-      S.personas.forEach((p, i) => marcar(i));
-      body.querySelectorAll('[data-pc]').forEach((b) => { b.onclick = () => { const i = +b.dataset.pc; colores[i] = b.dataset.c; body.querySelector(`[data-pcw="${i}"]`).value = b.dataset.c; marcar(i); }; });
-      body.querySelectorAll('[data-pcw]').forEach((inp) => { inp.oninput = () => { const i = +inp.dataset.pcw; colores[i] = inp.value; marcar(i); }; });
-      body.querySelector('#aPersonas').onclick = () => {
-        for (let i = 0; i < S.personas.length; i++) if (!body.querySelector(`[data-pn="${i}"]`).value.trim()) return toast('Completá los nombres');
-        S.personas.forEach((p, i) => { p.nombre = body.querySelector(`[data-pn="${i}"]`).value.trim(); p.color = colores[i]; });
-        guardar(); ['v-activos', 'v-resumen'].forEach((id) => { $(id).innerHTML = ''; }); render(); toast('Personas guardadas');
-      };
+      const q = (id) => body.querySelector(id);
+      // preferencias
+      q('#aTema').onchange = (e) => { S.ajustes.tema = e.target.value; guardar(); aplicarTema(); reiniciarPorTema(); };
+      q('#aInt').onchange = (e) => { S.ajustes.intervalo = +e.target.value; guardar(); programar(); };
+      const vid = q('#aVidrio'); vid.oninput = () => { S.ajustes.vidrio = +vid.value; aplicarTema(); }; vid.onchange = () => guardar();
+      q('#aGrande').onchange = (e) => { S.ajustes.letraGrande = e.target.checked; aplicarTema(); guardar(); };
+      q('#aAcento').onclick = hojaAcento;
+      S.personas.forEach((p, i) => { q('#aPers' + i).onclick = () => hojaPersona(i); });
+      // carteras
       body.querySelectorAll('[data-duena]').forEach((sel) => { sel.onchange = () => { const c = S.carteras.find((x) => x.id === sel.dataset.duena); if (sel.value) c.duena = sel.value; else delete c.duena; guardar(); render(); toast(c.nombre + ': ' + (sel.value ? 'de ' + nombreDe(sel.value) : 'compartida')); }; });
+      body.querySelectorAll('[data-ren]').forEach((b) => { b.onclick = () => { const c = S.carteras.find((x) => x.id === b.dataset.ren); const n = (prompt('Nuevo nombre', c.nombre) || '').trim(); if (!n) return; c.nombre = n.slice(0, 40); guardar(); abrirAjustes(); render(); }; });
+      body.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => borrarCartera(b.dataset.del); });
+      q('#aNuevaCart').onclick = () => { const n = (prompt('Nombre de la nueva cartera') || '').trim(); if (!n) return; S.carteras.push({ id: uid(), nombre: n.slice(0, 40) }); guardar(); abrirAjustes(); render(); toast('Cartera «' + n.slice(0, 40) + '» creada'); };
+      const mv = q('#aMover'); if (mv) mv.onclick = () => moverMovimientos();
+      // Drive
+      montarNubeAjustes(body);
+      // seguridad
+      q('#aPinSw').onchange = async (e) => {
+        const quiere = e.target.checked; e.target.checked = !quiere;   // vuelve atrás hasta que se confirme
+        if (quiere) {
+          const pinNuevo = await Seg.elegirPin(); if (!pinNuevo) return;
+          const g = gemini.get(); if (g) S._g = g;
+          await Seg.activar(pinNuevo, S);
+          try { localStorage.removeItem(KEY); localStorage.removeItem(KEY_GEMINI); Object.keys(localStorage).filter((x) => x.startsWith('mis-inversiones:h:')).forEach((x) => localStorage.removeItem(x)); } catch (err) {}
+          guardarQ(); abrirAjustes(); toast('PIN activado. Tus datos quedaron cifrados.');
+        } else {
+          if (!(await Seg.pedirPin({ titulo: 'Quitar PIN', sub: 'Ingresá tu PIN para confirmar', cancelable: true }))) return;
+          const g = S._g; delete S._g;
+          Seg.quitar(); if (g) gemini.set(g); guardarYa();
+          abrirAjustes(); toast('PIN quitado. Los datos ya no están cifrados.');
+        }
+      };
+      const bl = q('#aBloq'); if (bl) bl.onchange = (e) => { S.ajustes.bloqueo = +e.target.value; guardar(); };
+      const pc = q('#aPinCambiar');
+      if (pc) pc.onclick = async () => {
+        if (!(await Seg.pedirPin({ titulo: 'PIN actual', sub: 'Ingresá el PIN que usás hoy', cancelable: true }))) return;
+        const pinNuevo = await Seg.elegirPin(); if (!pinNuevo) return;
+        const habiaBio = Seg.bioActivo();
+        await Seg.activar(pinNuevo, S); Seg.quitarBio(); abrirAjustes();
+        toast(habiaBio ? 'PIN cambiado. Volvé a activar Face ID.' : 'PIN cambiado');
+      };
+      const bio = q('#aBio');
+      if (bio) bio.onchange = async () => {
+        if (!bio.checked) { Seg.quitarBio(); abrirAjustes(); toast('Face ID desactivado'); return; }
+        bio.checked = false;
+        if (!(await Seg.bioDisponible())) return toast('Este teléfono no ofrece Face ID a las apps web');
+        const r = await Seg.pedirPin({ titulo: 'Confirmá tu PIN', sub: 'Para activar Face ID', cancelable: true, conPin: true });
+        if (!r) return;
+        window.pausarBloqueo();
+        try { await Seg.activarBio(r.pin); abrirAjustes(); toast('Face ID activado. La próxima vez que abras, mirá el teléfono.'); }
+        catch (err) {
+          Seg.quitarBio();
+          toast(err.message === 'sin_prf' ? 'Tu iPhone no permite Face ID en apps web (hace falta iOS 18 o más nuevo).' : err.name === 'NotAllowedError' ? 'Se canceló Face ID.' : 'No se pudo activar Face ID.');
+        }
+      };
+      // datos
+      q('#aExp').onclick = exportar;
+      q('#aImp').onclick = importar;
+      const dm = q('#aDemo'); if (dm) dm.onclick = async () => { if (!(await confirmar('Borrar ejemplo', '¿Borrar los datos de ejemplo? Tus movimientos reales no se tocan.', 'Borrar ejemplo'))) return; ACCIONES.borrarDemo(); abrirAjustes(); };
+      q('#aBorrar').onclick = async () => {
+        if (!(await confirmar('Borrar todo', `Se borran <b>todos</b> los movimientos (${S.movs.length}), carteras y ajustes de este teléfono. No se puede deshacer, salvo que tengas una copia en Drive o un archivo.`, 'Borrar todo'))) return;
+        const tema = S.ajustes.tema, g = S._g; S = VACIO(); S.ajustes.tema = tema; if (g) S._g = g; guardar(); prevNum.clear(); abrirAjustes(); render(); toast('Datos borrados');
+      };
+      // capturas y versión
+      q('#aGemini').onclick = hojaGemini;
+      q('#aUpd').onclick = buscarActualizacion;
+    });
+  }
+
+  // Tarjeta: color de acento
+  function hojaAcento() {
+    const actual = () => S.ajustes.acento || '';
+    abrirHoja('Color de acento', `<p class="muted">Tiñe botones, pestañas, el panel Total y el fondo de la app.</p>
+      <div class="paleta grande">${ACENTOS.map((c, i) => `<button class="sw" data-ac="${i ? c : ''}" style="background:${c}" aria-label="${i ? 'Acento ' + c : 'Naranja original'}"></button>`).join('')}
+        <label class="sw rueda" aria-label="Elegir cualquier color"><input type="color" id="acRueda" value="${esc(actual() || '#FF8D28')}"></label></div>
+      <p class="muted" style="font-size:13px">El primero es el naranja original. La rueda abre todos los colores del teléfono.</p>`, (body) => {
+      const marcar = () => {
+        const c = actual(); let en = false;
+        body.querySelectorAll('[data-ac]').forEach((b) => { const si = b.dataset.ac === c; en = en || si; b.classList.toggle('on', si); });
+        const ru = body.querySelector('#acRueda').parentElement; ru.classList.toggle('on', !en); ru.style.boxShadow = en ? '' : `inset 0 0 0 9px ${c}`;
+      };
+      const poner = (c) => { S.ajustes.acento = c; aplicarTema(); guardar(); marcar(); };
+      body.querySelectorAll('[data-ac]').forEach((b) => { b.onclick = () => poner(b.dataset.ac); });
+      body.querySelector('#acRueda').oninput = (e) => poner(e.target.value);
+      marcar();
+    }, () => { if (vista === 'ajustes') abrirAjustes(); });
+  }
+
+  // Tarjeta: una persona (nombre y color)
+  function hojaPersona(i) {
+    const p = S.personas[i]; let color = p.color;
+    abrirHoja(p.nombre, `<label class="field"><span>Nombre</span><input id="ppNom" value="${esc(p.nombre)}" maxlength="24"></label>
+      <div class="field"><span>Color</span><div class="paleta grande">${COLORES_PERSONA.map((c) => `<button class="sw" data-pc="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join('')}
+        <label class="sw rueda" aria-label="Elegir cualquier color"><input type="color" id="ppRueda" value="${esc(p.color)}"></label></div></div>
+      <p class="muted" style="font-size:13px">Se usa en su panel de arriba, en el fondo de sus activos y en «Entre los dos».</p>
+      <button class="btn wide" id="ppOk">Guardar</button>`, (body) => {
+      const marcar = () => {
+        let en = false;
+        body.querySelectorAll('[data-pc]').forEach((b) => { const si = b.dataset.pc.toLowerCase() === color.toLowerCase(); en = en || si; b.classList.toggle('on', si); });
+        const ru = body.querySelector('#ppRueda').parentElement; ru.classList.toggle('on', !en); ru.style.boxShadow = en ? '' : `inset 0 0 0 9px ${color}`;
+      };
+      body.querySelectorAll('[data-pc]').forEach((b) => { b.onclick = () => { color = b.dataset.pc; marcar(); }; });
+      body.querySelector('#ppRueda').oninput = (e) => { color = e.target.value; marcar(); };
+      body.querySelector('#ppOk').onclick = () => {
+        const n = body.querySelector('#ppNom').value.trim(); if (!n) return toast('Poné un nombre');
+        p.nombre = n; p.color = color; guardar();
+        ['v-activos', 'v-resumen'].forEach((id) => { $(id).innerHTML = ''; });
+        cerrarHoja(); render(); toast('Guardado');
+      };
+      marcar();
+    }, () => { if (vista === 'ajustes') abrirAjustes(); });
+  }
+
+  // Tarjeta: lectura de capturas con Gemini
+  function hojaGemini() {
+    abrirHoja('Lectura de capturas', `<p class="muted">Para leer capturas, la app usa Gemini de Google con una clave gratuita tuya de <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent-ink)">aistudio.google.com/apikey</a>. Queda guardada sólo en este teléfono y no va en las copias. Plan gratis: unas 20 lecturas por día.</p>
+      <label class="field"><span>Clave de la API</span><input id="aKey" type="password" autocomplete="off" placeholder="${gemini.get() ? '•••••••• (guardada)' : 'AIza…'}"></label>
+      <button class="btn wide" id="aKeyOk">Guardar y probar</button>
+      ${gemini.get() ? '<div class="btns"><button class="btn gray" id="aKeyTest">Probar clave</button><button class="btn danger" id="aKeyDel">Quitar</button></div>' : ''}
+      <p class="muted" id="aKeyRes" style="font-size:13px" hidden></p>`, (body) => {
       const resKey = body.querySelector('#aKeyRes');
       const probar = async (k, btn) => {
-        btn.disabled = true; const t = btn.textContent; btn.textContent = 'Probando…';
+        btn.disabled = true; const tx = btn.textContent; btn.textContent = 'Probando…';
         resKey.hidden = false; resKey.style.color = ''; resKey.textContent = 'Consultando a Gemini…';
         const r = await probarGemini(k);
-        btn.disabled = false; btn.textContent = t;
+        btn.disabled = false; btn.textContent = tx;
         resKey.textContent = (r.ok ? '✓ ' : '✗ ') + r.txt; resKey.style.color = r.ok ? 'var(--gain)' : 'var(--loss)';
         return r;
       };
@@ -1305,59 +1414,9 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
       };
       const kt = body.querySelector('#aKeyTest'); if (kt) kt.onclick = (e) => probar(gemini.get(), e.target);
       const kd = body.querySelector('#aKeyDel'); if (kd) kd.onclick = async () => { if (!(await confirmar('Quitar clave', '¿Quitar la clave de Gemini de este teléfono? Vas a tener que pegarla de nuevo para leer capturas.', 'Quitar clave'))) return; gemini.set(''); abrirAjustes(); toast('Clave quitada'); };
-      body.querySelectorAll('[data-ren]').forEach((b) => { b.onclick = () => { const c = S.carteras.find((x) => x.id === b.dataset.ren); const n = (prompt('Nuevo nombre', c.nombre) || '').trim(); if (!n) return; c.nombre = n.slice(0, 40); guardar(); abrirAjustes(); render(); }; });
-      body.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => borrarCartera(b.dataset.del); });
-      const mv = body.querySelector('#aMover'); if (mv) mv.onclick = () => moverMovimientos();
-      montarNubeAjustes(body);
-      body.querySelectorAll('#aBloq button').forEach((b) => { b.onclick = () => { S.ajustes.bloqueo = +b.dataset.val; guardar(); body.querySelectorAll('#aBloq button').forEach((x) => x.classList.toggle('on', x === b)); }; });
-      const pon = body.querySelector('#aPinOn');
-      if (pon) pon.onclick = async () => {
-        const pin = await Seg.elegirPin(); if (!pin) return;
-        const g = gemini.get(); if (g) S._g = g;
-        await Seg.activar(pin, S);
-        try { localStorage.removeItem(KEY); localStorage.removeItem(KEY_GEMINI); Object.keys(localStorage).filter((x) => x.startsWith('mis-inversiones:h:')).forEach((x) => localStorage.removeItem(x)); } catch (e) {}
-        guardarQ();
-        abrirAjustes(); toast('PIN activado. Tus datos quedaron cifrados.');
-      };
-      const pc = body.querySelector('#aPinCambiar');
-      if (pc) pc.onclick = async () => {
-        if (!(await Seg.pedirPin({ titulo: 'PIN actual', sub: 'Ingresá el PIN que usás hoy', cancelable: true }))) return;
-        const pin = await Seg.elegirPin(); if (!pin) return;
-        const habiaBio = Seg.bioActivo();
-        await Seg.activar(pin, S); Seg.quitarBio(); abrirAjustes();
-        toast(habiaBio ? 'PIN cambiado. Volvé a activar Face ID.' : 'PIN cambiado');
-      };
-      const bio = body.querySelector('#aBio');
-      if (bio) bio.onchange = async () => {
-        if (!bio.checked) { Seg.quitarBio(); abrirAjustes(); toast('Face ID desactivado'); return; }
-        bio.checked = false;
-        if (!(await Seg.bioDisponible())) return toast('Este teléfono no ofrece Face ID a las apps web');
-        const r = await Seg.pedirPin({ titulo: 'Confirmá tu PIN', sub: 'Para activar Face ID', cancelable: true, conPin: true });
-        if (!r) return;
-        window.pausarBloqueo();
-        try { await Seg.activarBio(r.pin); abrirAjustes(); toast('Face ID activado. La próxima vez que abras, mirá el teléfono.'); }
-        catch (e) {
-          Seg.quitarBio();
-          toast(e.message === 'sin_prf' ? 'Tu iPhone no permite Face ID en apps web (hace falta iOS 18 o más nuevo).' : e.name === 'NotAllowedError' ? 'Se canceló Face ID.' : 'No se pudo activar Face ID.');
-        }
-      };
-      const pq = body.querySelector('#aPinQuitar');
-      if (pq) pq.onclick = async () => {
-        if (!(await Seg.pedirPin({ titulo: 'Quitar PIN', sub: 'Ingresá tu PIN para confirmar', cancelable: true }))) return;
-        const g = S._g; delete S._g;
-        Seg.quitar(); if (g) gemini.set(g); guardarYa();
-        abrirAjustes(); toast('PIN quitado. Los datos ya no están cifrados.');
-      };
-      body.querySelector('#aUpd').onclick = buscarActualizacion;
-      body.querySelector('#aExp').onclick = exportar;
-      body.querySelector('#aImp').onclick = importar;
-      const dm = body.querySelector('#aDemo'); if (dm) dm.onclick = async () => { if (!(await confirmar('Borrar ejemplo', '¿Borrar los datos de ejemplo? Tus movimientos reales no se tocan.', 'Borrar ejemplo'))) return; ACCIONES.borrarDemo(); abrirAjustes(); };
-      body.querySelector('#aBorrar').onclick = async () => {
-        if (!(await confirmar('Borrar todo', `Se borran <b>todos</b> los movimientos (${S.movs.length}), carteras y ajustes de este teléfono. No se puede deshacer, salvo que tengas una copia en Drive o un archivo.`, 'Borrar todo'))) return;
-        const tema = S.ajustes.tema, g = S._g; S = VACIO(); S.ajustes.tema = tema; if (g) S._g = g; guardar(); prevNum.clear(); abrirAjustes(); render(); toast('Datos borrados');
-      };
-    });
+    }, () => { if (vista === 'ajustes') abrirAjustes(); });
   }
+
   function pedirContrasena(titulo, nueva) {
     return new Promise((resolve) => {
       let listo = false;
@@ -1800,8 +1859,12 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     try { localStorage.setItem(KEY_TEMA, S.ajustes.tema || ''); } catch (e) {}
     try { if (Seg.activo()) { await Seg.guardar(S); await Seg.sesionCorta(); } else localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     try { sessionStorage.setItem('mis-inversiones:volverA', 'ajustes'); } catch (e) {}
-    document.body.style.transition = 'opacity .18s'; document.body.style.opacity = '0';
-    setTimeout(() => location.reload(), 180);
+    // fundido suave al color de fondo del tema NUEVO (así no se ve el salto), y recién ahí se reinicia
+    const velo = document.createElement('div'); velo.className = 'velo';
+    velo.style.background = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#000';
+    document.body.appendChild(velo);
+    requestAnimationFrame(() => velo.classList.add('on'));
+    setTimeout(() => location.reload(), 320);
   }
   async function buscarActualizacion() {
     toast('Buscando la última versión…');
@@ -1917,7 +1980,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     if (Seg.activo()) cargar((await Seg.retomarSesion()) || await Seg.pedirPin()); else cargar();
     aplicarTema(); listo = true;
     render();
-    try { if (sessionStorage.getItem('mis-inversiones:volverA') === 'ajustes') { sessionStorage.removeItem('mis-inversiones:volverA'); abrirAjustes(); } } catch (e) {}
+    try { if (sessionStorage.getItem('mis-inversiones:volverA') === 'ajustes') { sessionStorage.removeItem('mis-inversiones:volverA'); abrirAjustes(); document.body.classList.add('entra-suave'); setTimeout(() => document.body.classList.remove('entra-suave'), 700); } } catch (e) {}
     actualizar(); programar();
     if (nube.pendingSession) { empezarReclamo(); reclamar(); }
     if (nubeOn() && nube.pending) subir();
