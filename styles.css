@@ -521,3 +521,4 @@ body::after {
       color-mix(in srgb, var(--bg) 45%, transparent) calc(env(safe-area-inset-top, 0px) + 130px), transparent calc(env(safe-area-inset-top, 0px) + 220px)),
     radial-gradient(70% 45% at 0% 0%, var(--aurora-1), transparent 70%), radial-gradient(60% 45% at 100% 100%, var(--aurora-3), transparent 70%),
     var(--bg); }
+.sep-in { height: .5px; background: var(--separator); margin: 6px 0; }

@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.1.1';
+  const VERSION = '2.2.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -817,7 +817,25 @@
           ${S.carteras.map((c) => `<option value="${esc(c.id)}" ${cart === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label></div>
       <label class="field" id="dcPctW" ${actual === 'compartido' ? '' : 'hidden'}><span>% de ${esc(S.personas[0].nombre)} (el resto, de ${esc(S.personas[1].nombre)})</span><input id="dcPct" inputmode="decimal" value="${pct0}"></label>
       <p class="muted" style="font-size:13px">Se aplica a los ${ms.length} movimientos de este activo (compras, ventas y rentas). Los ingresos de dinero no se tocan.</p>
-      <button class="btn sec" id="dcOk" hidden>Aplicar cambio</button></div>`;
+      <button class="btn sec" id="dcOk" hidden>Aplicar cambio</button>
+      ${S.carteras.length > 1 && partes.filter((x) => x.q > 0).length ? `<div class="sep-in"></div>
+        <span class="hint" style="padding:0">La parte de cada uno, a su cartera</span>
+        ${partes.filter((x) => x.q > 0).map((x) => {
+          const cs = new Set(ms.filter((m) => C.parteDe(m, x.p.id, personaDef()) > 0).map((m) => m.cartera));
+          const cv = cs.size === 1 ? [...cs][0] : 'varias';
+          return `<label class="field"><span>${chip(x.p.id, 'Parte de ' + x.p.nombre + ' (' + Math.round(x.q / tot * 100) + '%)')}</span><select data-rc="${esc(x.p.id)}" data-rc0="${esc(cv)}">
+            ${cv === 'varias' ? '<option value="varias" selected>Varias (como está)</option>' : ''}${S.carteras.map((c) => `<option value="${esc(c.id)}" ${cv === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label>`;
+        }).join('')}
+        <p class="muted" style="font-size:13px">Si una compra es compartida, se divide en dos (una por persona, con su porcentaje) para que cada parte quede en su cartera.</p>
+        <button class="btn sec" id="rcOk" hidden>Mover las partes</button>` : ''}</div>`;
+  }
+  // Divide un movimiento compartido en uno por persona (cantidades y montos según su porcentaje)
+  function dividirPorPersona(m) {
+    return S.personas.map((p) => ({ p, f: C.parteDe(m, p.id, personaDef()) })).filter((x) => x.f > 0).map((x) => {
+      const c = JSON.parse(JSON.stringify(m)); delete c.reparto; c.titular = x.p.id; c.id = m.id + '-' + x.p.id;
+      ['cantidad', 'monto', 'comision', 'pesos'].forEach((k) => { if (c[k] !== undefined && c[k] !== null && c[k] !== '') c[k] = (+c[k]) * x.f; });
+      return c;
+    });
   }
   function montarDuenoCartera(body, key, ticker) {
     const d = body.querySelector('#dcDueno'); if (!d) return;
@@ -839,6 +857,24 @@
       });
       guardar(); render(); toast(ticker + ' actualizado'); abrirActivo(key, { clase: key.split(':')[0], ticker });
     };
+    const rc = body.querySelector('#rcOk');
+    if (rc) {
+      const sels = [...body.querySelectorAll('[data-rc]')];
+      sels.forEach((x) => { x.onchange = () => { rc.hidden = sels.every((y) => y.value === y.dataset.rc0); }; });
+      rc.onclick = async () => {
+        const cambios = sels.filter((y) => y.value !== 'varias' && y.value !== y.dataset.rc0).map((y) => ({ pid: y.dataset.rc, cart: y.value }));
+        if (!cambios.length) return;
+        if (!(await confirmar('Mover partes', cambios.map((c0) => `La parte de <b>${esc(nombreDe(c0.pid))}</b> de ${esc(ticker)} pasa a <b>${esc(nombreCartera(c0.cart))}</b>.`).join('<br>'), 'Mover', false))) return abrirActivo(key, { clase: key.split(':')[0], ticker });
+        const copia = JSON.parse(JSON.stringify(S.movs));
+        // 1) dividir los compartidos de este activo
+        const ids = new Set(movsDelActivo(key).filter((m) => m.reparto).map((m) => m.id));
+        if (ids.size) { const nuevos = []; S.movs = S.movs.filter((m) => { if (!ids.has(m.id)) return true; nuevos.push(...dividirPorPersona(m)); return false; }); S.movs.push(...nuevos); }
+        // 2) cada parte a su cartera
+        cambios.forEach((c0) => movsDelActivo(key).forEach((m) => { if ((m.titular || personaDef()) === c0.pid && !m.reparto) m.cartera = c0.cart; }));
+        guardar(); render(); abrirActivo(key, { clase: key.split(':')[0], ticker });
+        toast(ticker + ': partes movidas', 'Deshacer', () => { S.movs = copia; guardar(); render(); });
+      };
+    }
   }
 
   // Confirmación antes de borrar o reemplazar algo (siempre, pedido de Felipe)
@@ -1222,7 +1258,11 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         <div class="btns"><button class="btn sec" id="aExp">Bajar copia cifrada</button><button class="btn gray" id="aImp">Importar archivo</button></div>
         ${S.movs.some((m) => m.demo) ? '<button class="btn gray" id="aDemo">Borrar datos de ejemplo</button>' : ''}
         <button class="btn danger" id="aBorrar">Borrar todo</button></div>
-      <p class="foot">Mis Inversiones ${VERSION} · Precios: data912, Binance, dolarapi y ArgentinaDatos. Sólo organiza tus datos; no es asesoramiento financiero.</p>`, (body) => {
+      <div class="card" style="background:var(--surface-2)"><h2>Versión</h2>
+        <p style="margin:0;font-size:15px">Estás usando <b>Mis Inversiones ${VERSION}</b></p>
+        <button class="btn sec" id="aUpd">Buscar actualización</button>
+        <p class="muted" style="font-size:13px">Trae la última versión publicada y vuelve a abrir la app. Tus datos no se tocan.</p></div>
+      <p class="foot">Precios: data912, Binance, dolarapi y ArgentinaDatos. Sólo organiza tus datos; no es asesoramiento financiero.</p>`, (body) => {
       body.querySelectorAll('#aTema button').forEach((b) => { b.onclick = () => { S.ajustes.tema = b.dataset.val; guardar(); aplicarTema(); body.querySelectorAll('#aTema button').forEach((x) => x.classList.toggle('on', x === b)); }; });
       body.querySelectorAll('#aInt button').forEach((b) => { b.onclick = () => { S.ajustes.intervalo = +b.dataset.val; guardar(); programar(); body.querySelectorAll('#aInt button').forEach((x) => x.classList.toggle('on', x === b)); }; });
       const vid = body.querySelector('#aVidrio');
@@ -1311,6 +1351,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         Seg.quitar(); if (g) gemini.set(g); guardarYa();
         abrirAjustes(); toast('PIN quitado. Los datos ya no están cifrados.');
       };
+      body.querySelector('#aUpd').onclick = buscarActualizacion;
       body.querySelector('#aExp').onclick = exportar;
       body.querySelector('#aImp').onclick = importar;
       const dm = body.querySelector('#aDemo'); if (dm) dm.onclick = async () => { if (!(await confirmar('Borrar ejemplo', '¿Borrar los datos de ejemplo? Tus movimientos reales no se tocan.', 'Borrar ejemplo'))) return; ACCIONES.borrarDemo(); abrirAjustes(); };
@@ -1719,13 +1760,14 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     const lista = S.movs.filter((m) => m.cartera === desde).sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
     abrirHoja('Mover movimientos', `<div class="cols"><label class="field"><span>Desde</span><select id="mmDesde">${S.carteras.map((c) => `<option value="${esc(c.id)}" ${c.id === desde ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label>
         <label class="field"><span>Hacia</span><select id="mmHacia">${S.carteras.filter((c) => c.id !== desde).map((c) => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}<option value="__nueva">Nueva cartera…</option></select></label></div>
-      <div class="btns"><button class="btn gray" id="mmTodos">Todos</button><button class="btn gray" id="mmNada">Ninguno</button><button class="btn gray" id="mmCapt">De capturas</button></div>
-      <div class="group">${lista.map((m) => `<label class="item"><input type="checkbox" data-mm="${esc(m.id)}" style="width:22px;height:22px;flex:none"><span class="tx"><b>${esc(titulo(m))}</b><span>${esc(fechaCorta(m.fecha))}${m.origen === 'captura' ? ' · desde captura' : ''}</span></span><span class="rt num">${esc(monto(m))}</span></label>`).join('') || '<p class="muted" style="padding:14px">Esta cartera no tiene movimientos.</p>'}</div>
+      <div class="btns"><button class="btn gray" id="mmTodos">Todos</button><button class="btn gray" id="mmNada">Ninguno</button><button class="btn gray" id="mmCapt">De capturas</button>${S.personas.map((p) => `<button class="btn gray" data-mmp="${esc(p.id)}">De ${esc(p.nombre)}</button>`).join('')}</div>
+      <div class="group">${lista.map((m) => `<label class="item"><input type="checkbox" data-mm="${esc(m.id)}" style="width:22px;height:22px;flex:none"><span class="tx"><b>${esc(titulo(m))}</b><span>${esc(fechaCorta(m.fecha))}${m.origen === 'captura' ? ' · desde captura' : ''}</span><span>${letraMov(m)}</span></span><span class="rt num">${esc(monto(m))}</span></label>`).join('') || '<p class="muted" style="padding:14px">Esta cartera no tiene movimientos.</p>'}</div>
       <button class="btn wide" id="mmOk">Mover</button>`, (body) => {
       body.querySelector('#mmDesde').onchange = (e) => moverMovimientos(e.target.value);
       const cajas = () => [...body.querySelectorAll('[data-mm]')];
       body.querySelector('#mmTodos').onclick = () => cajas().forEach((c) => { c.checked = true; });
       body.querySelector('#mmNada').onclick = () => cajas().forEach((c) => { c.checked = false; });
+      body.querySelectorAll('[data-mmp]').forEach((b) => { b.onclick = () => cajas().forEach((c) => { const m = S.movs.find((x) => x.id === c.dataset.mm) || {}; c.checked = !m.reparto && (m.titular || personaDef()) === b.dataset.mmp; }); });
       body.querySelector('#mmCapt').onclick = () => cajas().forEach((c) => { c.checked = (S.movs.find((m) => m.id === c.dataset.mm) || {}).origen === 'captura'; });
       body.querySelector('#mmOk').onclick = async () => {
         const ids = cajas().filter((c) => c.checked).map((c) => c.dataset.mm);
@@ -1750,6 +1792,19 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     if (!ya) S.carteras.unshift({ id: x.cartera.id, nombre: x.cartera.nombre });
     esta.forEach((m) => { m.cartera = x.cartera.id; });
     guardar(); if (vista === 'ajustes') abrirAjustes(); render(); toast(`Cartera «${x.cartera.nombre}» restaurada con ${esta.length} movimientos`);
+  }
+
+  async function buscarActualizacion() {
+    toast('Buscando la última versión…');
+    if (tGuardar) guardarYa();
+    try {
+      const nueva = ((await (await fetch('sw.js', { cache: 'no-store' })).text()).match(/mis-inversiones-v([\d.]+)/) || [])[1];
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      if (reg) await reg.update();
+      const ks = await caches.keys(); await Promise.all(ks.filter((k) => k.startsWith('mis-inversiones-v')).map((k) => caches.delete(k)));
+      if (nueva && nueva !== VERSION) toast('Actualizando a ' + nueva + '…'); else toast('Ya tenés la última (' + VERSION + '). Recargando…');
+    } catch (e) { /* sin red: recarga igual */ }
+    setTimeout(() => location.reload(), 900);
   }
 
   /* ---------- datos de ejemplo ---------- */
