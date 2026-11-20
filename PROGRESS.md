@@ -25,11 +25,11 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
   bloqueo al salir (al instante / 1 / 5 min), contenido tapado en el selector de apps, con PIN no se guardan historiales ni cripto pedidas.
   Copias bajadas cifradas con contraseña (≥ 8); restaurar acepta cifradas y viejas en claro. La clave de Gemini nunca va en la copia.
 - [x] Publicada y verificada 2026-11-19: precios y dólar por fecha desde el dominio público, SW + offline OK.
+- [x] v1.6.0: entrar con Google + copia cifrada automática en Drive (drive.appdata), igual que Mis Finanzas. Reusa el cliente OAuth, el intermediario Apps Script y la página de retorno de mis-finanzas (sin cambios en GCP; la pantalla de Google dice «Mis Finanzas»). Archivos `mis-inversiones.enc.json` + diarias `mis-inversiones-AAAA-MM-DD.enc.json` (60 días); no tocan los de Mis Finanzas (`finanzas*`, `mf-fm*`). Contraseña de copias ≥ 8, clave en IndexedDB `mis-inversiones` (CryptoKey no exportable). Sube 2,5 s después de cada cambio; la foto diaria del valor, como mucho cada 30 min. Probado con Google/Drive simulados: subir cifrado, recuperar en teléfono nuevo, contraseña incorrecta.
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente
 - [ ] Probar la lectura con las capturas reales de Felipe (necesita su clave de Gemini).
-- [ ] Copia automática cifrada a Google Drive como Mis Finanzas (necesita redirect OAuth nuevo en GCP mis-finanzas-511004 + backend).
 - [ ] Desbloqueo con Face ID (WebAuthn PRF) — opcional.
 - [ ] Movimiento «compra de dólares» (pesos → USD) y transferencias entre carteras.
 

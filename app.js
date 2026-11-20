@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.5.0';
+  const VERSION = '1.6.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -38,6 +38,7 @@
     plus: ic('<path d="M12 5v14M5 12h14"/>'),
     trash: ic('<path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/>'),
     spark: ic('<path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"/>'),
+    nube: ic('<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4.25 4.25 0 0 1-.25 8.5z"/><path d="m9.5 13.5 2 2 3.5-3.5"/>'),
   };
   const TIPOS = {
     ingreso: { nombre: 'Ingreso de dinero', icon: I.in },
@@ -73,10 +74,13 @@
   function guardarYa() {
     clearTimeout(tGuardar); tGuardar = null;
     try { localStorage.setItem(KEY_TEMA, S.ajustes.tema || ''); } catch (e) {}
+    const menor = soloFoto; soloFoto = false;
+    if (typeof programarSubida === 'function') programarSubida(menor);
     if (Seg.activo()) { Seg.guardar(S).catch(() => toast('No se pudo guardar en este dispositivo')); return; }
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('No se pudo guardar en este dispositivo'); }
   }
-  function guardar() { clearTimeout(tGuardar); tGuardar = setTimeout(guardarYa, 150); }
+  let soloFoto = false;   // la foto diaria del valor cambia cada 30 s: no subir a Drive por eso
+  function guardar(menor) { if (!menor) soloFoto = false; else if (!tGuardar) soloFoto = true; clearTimeout(tGuardar); tGuardar = setTimeout(guardarYa, 150); }
   // La clave de Gemini: con PIN va dentro de los datos cifrados; sin PIN, en el almacenamiento del teléfono.
   const gemini = {
     get() { if (Seg.activo()) return S._g || ''; try { return localStorage.getItem(KEY_GEMINI) || ''; } catch (e) { return ''; } },
@@ -247,7 +251,7 @@
       S.snaps[k] = S.snaps[k] || {};
       S.snaps[k][hoy] = { v: r.valor.ars, vo: r.valor.of, k: r.capital.ars, ko: r.capital.of };
     });
-    guardar();
+    guardar(true);
   }
 
   /* ================= gráficos ================= */
@@ -436,7 +440,7 @@
     if (vista === 'activos') cargarSparks();
   }
   function conPila(cont, primeraVez) {
-    if (!S.movs.length) { cont.innerHTML = htmlVacio(); montarDebajo(cont); return; }
+    if (!S.movs.length) { cont.innerHTML = htmlVacio(); montarDebajo(cont); activarBotonGoogle(cont.querySelector('#vGo')); return; }
     if (!cont.querySelector('.debajo')) { cont.innerHTML = '<div class="stack-hint">Deslizá el panel ↕ para ver lo tuyo, lo de ella o el total</div><div class="debajo" style="display:grid;gap:12px"></div>'; }
     renderStack(cont);
     renderDebajo();
@@ -445,7 +449,8 @@
   function htmlVacio() {
     return `<div class="card empty">${I.chart}<h3>Tu cartera, sin confusiones</h3>
       <p>Cargá tus ingresos de dinero y tus compras. La app separa lo que pusiste de lo que realmente rinden tus activos.</p>
-      <div class="btns" style="width:100%"><button class="btn" data-act="captura">${I.cam}Subir captura</button><button class="btn sec" data-act="manual">${I.pen}A mano</button></div>
+      ${nubeOn() ? '' : `${botonGoogle('vGo', 'Entrar con Google')}<p class="muted" style="font-size:13px;margin-top:-4px">Guarda una copia cifrada en tu Drive y, si ya tenés una, la recupera.</p>`}
+      <div class="btns" style="width:100%"><button class="btn ${nubeOn() ? '' : 'sec'}" data-act="captura">${I.cam}Subir captura</button><button class="btn sec" data-act="manual">${I.pen}A mano</button></div>
       <button class="link" data-act="demo">Probar con datos de ejemplo</button></div>
       <p class="foot">Sólo organiza tus datos; no es asesoramiento financiero.</p>`;
   }
@@ -1045,6 +1050,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         <div class="btns"><button class="btn sec" id="aKeyOk">Guardar clave</button>${gemini.get() ? '<button class="btn danger" id="aKeyDel">Quitar</button>' : ''}</div></div>
       <div class="card" style="background:var(--surface-2)"><h2>Carteras</h2>
         <div class="group" style="box-shadow:none;background:transparent">${S.carteras.map((c) => `<div class="item" style="padding:6px 0"><span class="tx"><b>${esc(c.nombre)}</b><span>${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span><button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}</div></div>
+      ${htmlNubeAjustes()}
       <div class="card" style="background:var(--surface-2)"><h2>PIN de ingreso</h2>
         ${Seg.activo() ? `<p class="muted" style="font-size:13px">Activo. Tus datos en este teléfono están cifrados con tu PIN (AES-256). Tras 5 intentos fallidos la app hace esperar, cada vez más.</p>
           <span class="hint" style="padding:0">Bloquear al salir de la app</span>
@@ -1077,6 +1083,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         if (!confirm(`¿Borrar la cartera? ${n ? `Sus ${n} movimientos pasan a «${destino.nombre}».` : ''}`)) return;
         S.movs.forEach((m) => { if (m.cartera === id) m.cartera = destino.id; }); S.carteras = S.carteras.filter((c) => c.id !== id); if (S.ajustes.cartera === id) S.ajustes.cartera = ''; guardar(); abrirAjustes(); render();
       }; });
+      montarNubeAjustes(body);
       body.querySelectorAll('#aBloq button').forEach((b) => { b.onclick = () => { S.ajustes.bloqueo = +b.dataset.val; guardar(); body.querySelectorAll('#aBloq button').forEach((x) => x.classList.toggle('on', x === b)); }; });
       const pon = body.querySelector('#aPinOn');
       if (pon) pon.onclick = async () => {
@@ -1190,6 +1197,291 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     toast([nuevos.length ? nuevos.length + ' agregados' : '', cambian.length ? cambian.length + ' actualizados' : ''].filter(Boolean).join(' · '));
   }
 
+  /* ================= Copia cifrada en Google Drive (mismo esquema que Mis Finanzas) ================= */
+  // Cada persona entra con su cuenta de Google. Permiso mínimo (drive.appdata): la app sólo ve su carpeta oculta,
+  // no el resto del Drive. Lo que sube va cifrado (AES-GCM 256) con la «contraseña de copias». El intermediario
+  // (Apps Script de Mis Finanzas) sólo canjea el inicio de sesión: nunca recibe los datos.
+  const GOOGLE_CLIENT_ID = '872037994128-cjgsu37c3mh7cdlsk9ic9l9f03f75agf.apps.googleusercontent.com';
+  const BROKER_URL = 'https://script.google.com/macros/s/AKfycbzqMyt30WtQnaUyPxk6SOzmhvmL7Dzp_A6Y1QLTYwAUdyH89j1SoiD54lMbqLWtX_Sv/exec';
+  const REDIRECT_URI = 'https://felipemanrique.github.io/mis-finanzas/oauth.html';   // registrada en Google Cloud y en el intermediario
+  const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+  const NUBE_KEY = 'mis-inversiones:drive';
+  const ARCH = 'mis-inversiones.enc.json', DIARIA = 'mis-inversiones-', DIAS_GUARDA = 60;
+  const DAPI = 'https://www.googleapis.com/drive/v3/files', DUP = 'https://www.googleapis.com/upload/drive/v3/files';
+  let nube = (() => { try { return JSON.parse(localStorage.getItem(NUBE_KEY)) || {}; } catch (e) { return {}; } })();
+  let acceso = null, tSync = null, tReint = null, tClaim = null, subiendo = false, otraVez = false, reclamando = false, claveCopias = null;
+  function guardarNube() { try { localStorage.setItem(NUBE_KEY, JSON.stringify(nube)); } catch (e) {} pintarNube(); }
+  const nubeOn = () => !!nube.refreshToken;
+  const idAzar = () => btoa(String.fromCharCode.apply(null, crypto.getRandomValues(new Uint8Array(24)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  // clave de las copias: en IndexedDB, como CryptoKey no exportable
+  function idb() { return new Promise((res, rej) => { const r = indexedDB.open('mis-inversiones', 1); r.onupgradeneeded = () => r.result.createObjectStore('keys'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+  async function idbDo(modo, fn) { const d = await idb(); return new Promise((res, rej) => { const tx = d.transaction('keys', modo); const q = fn(tx.objectStore('keys')); tx.oncomplete = () => res(q && q.result); tx.onerror = () => rej(tx.error); }); }
+  async function getClave() { if (claveCopias) return claveCopias; try { claveCopias = (await idbDo('readonly', (s) => s.get('copias'))) || null; } catch (e) { claveCopias = null; } return claveCopias; }
+  async function setClave(k) { claveCopias = k; try { await idbDo('readwrite', (s) => (k ? s.put(k, 'copias') : s.delete('copias'))); } catch (e) {} }
+
+  async function broker(action, extra) {
+    const r = await fetch(BROKER_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action }, extra || {})) });
+    try { return JSON.parse(await r.text()); } catch (e) { throw new Error('broker'); }
+  }
+  async function token() {
+    if (acceso && acceso.exp - Date.now() > 60000) return acceso.token;
+    const r = await broker('refresh', { refresh_token: nube.refreshToken });
+    if (!r.ok) { if (r.error === 'invalid_grant') { nube.error = 'reauth'; guardarNube(); throw new Error('reauth'); } throw new Error('broker'); }
+    acceso = { token: r.access_token, exp: Date.now() + (r.expires_in || 3600) * 1000 };
+    return acceso.token;
+  }
+  async function g(method, url, body, headers, otra) {
+    const t = await token();
+    const r = await fetch(url, { method, headers: Object.assign({ Authorization: 'Bearer ' + t }, headers || {}), body });
+    if (r.status === 401 && !otra) { acceso = null; return g(method, url, body, headers, true); }
+    if (!r.ok) { const e = new Error('drive_' + r.status); e.status = r.status; throw e; }
+    if (r.status === 204) return null;
+    const txt = await r.text(); try { return JSON.parse(txt); } catch (e) { return txt; }
+  }
+  const listar = async (q) => ((await g('GET', `${DAPI}?spaces=appDataFolder&pageSize=1000&fields=files(id,name,modifiedTime)&q=${encodeURIComponent(q || 'trashed=false')}`)) || {}).files || [];
+  const buscar = async (nombre) => (await listar(`name='${nombre}' and trashed=false`))[0] || null;
+  function crear(nombre, contenido) {
+    const b = 'mi' + Math.random().toString(36).slice(2);
+    const body = `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name: nombre, parents: ['appDataFolder'] })}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${contenido}\r\n--${b}--`;
+    return g('POST', `${DUP}?uploadType=multipart&fields=id`, body, { 'Content-Type': 'multipart/related; boundary=' + b });
+  }
+  const actualizarArch = (id, contenido) => g('PATCH', `${DUP}/${id}?uploadType=media&fields=id`, contenido, { 'Content-Type': 'application/json' });
+  const leerArch = (id) => g('GET', `${DAPI}/${id}?alt=media`);
+  const borrarArch = (id) => g('DELETE', `${DAPI}/${id}`);
+  async function escribirPrincipal(c) {
+    if (nube.fileId) { try { await actualizarArch(nube.fileId, c); return; } catch (e) { if (e.status !== 404) throw e; nube.fileId = null; } }
+    const f = await buscar(ARCH);
+    if (f) { nube.fileId = f.id; await actualizarArch(f.id, c); } else nube.fileId = (await crear(ARCH, c)).id;
+  }
+  async function leerPrincipal() {
+    const f = nube.fileId ? { id: nube.fileId } : await buscar(ARCH);
+    if (!f) return null;
+    try { const env = await leerArch(f.id); nube.fileId = f.id; return env; } catch (e) { if (e.status === 404 && nube.fileId) { nube.fileId = null; return leerPrincipal(); } throw e; }
+  }
+  async function escribirDiaria(c) {
+    const dia = hoyISO(); if (nube.ultimaDiaria === dia) return;
+    const nombre = DIARIA + dia + '.enc.json', f = await buscar(nombre);
+    if (f) await actualizarArch(f.id, c); else await crear(nombre, c);
+    nube.ultimaDiaria = dia;
+    const limite = new Date(Date.now() - DIAS_GUARDA * 864e5).toISOString().slice(0, 10);
+    const viejas = (await listar(`name contains '${DIARIA}2' and trashed=false`)).filter((x) => (x.name.match(/\d{4}-\d{2}-\d{2}/) || [''])[0] < limite);
+    for (const x of viejas) { try { await borrarArch(x.id); } catch (e) {} }
+  }
+
+  // Subir: 2,5 s después de cada cambio tuyo; las fotos diarias del valor, como mucho cada 30 min.
+  function programarSubida(menor) {
+    if (!nubeOn()) return;
+    if (menor && tSync) return;
+    if (!nube.pending) { nube.pending = true; guardarNube(); }
+    clearTimeout(tSync); tSync = setTimeout(() => { tSync = null; subir(); }, menor ? 30 * 60000 : 2500);
+  }
+  async function subir(forzar) {
+    if (!nubeOn() || (!nube.pending && !forzar)) return;
+    if (!navigator.onLine) { nube.error = 'offline'; guardarNube(); return; }
+    if (subiendo) { otraVez = true; return; }
+    const k = await getClave();
+    if (!k) { nube.error = 'nokey'; nube.pending = true; guardarNube(); return; }
+    if (!S.movs.length && nube.cuantos > 0 && !forzar) { nube.error = 'vacia'; guardarNube(); return; }   // no pisar una copia con datos usando una app vacía
+    subiendo = true; clearTimeout(tReint); nube.pending = false; pintarNube();
+    try {
+      const env = await Seg.sellar(k, Object.assign({ version: 1 }, paraCopia()), { savedAt: new Date().toISOString() });
+      const c = JSON.stringify(env);
+      await escribirPrincipal(c); await escribirDiaria(c);
+      nube.lastAt = env.savedAt; nube.cuantos = S.movs.length; nube.error = null;
+    } catch (e) { nube.pending = true; nube.error = e.message === 'reauth' ? 'reauth' : navigator.onLine ? 'server' : 'offline'; }
+    subiendo = false; guardarNube();
+    if (otraVez) { otraVez = false; programarSubida(); } else if (nube.pending && nube.error === 'server') tReint = setTimeout(() => subir(), 60000);
+  }
+  function relTiempo(iso) {
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    return s < 60 ? 'recién' : s < 3600 ? `hace ${Math.round(s / 60)} min` : s < 86400 ? `hace ${Math.round(s / 3600)} h` : fechaCorta(iso.slice(0, 10));
+  }
+  function estadoNube() {
+    if (!nubeOn()) return { nivel: 'off', txt: 'Sin copia en Drive' };
+    if (subiendo) return { nivel: 'busy', txt: 'Subiendo copia cifrada…' };
+    const e = nube.error;
+    if (e === 'reauth') return { nivel: 'error', txt: 'Google cerró el acceso. Volvé a conectar tu cuenta.' };
+    if (e === 'nokey') return { nivel: 'error', txt: 'Falta tu contraseña de copias en este teléfono.' };
+    if (e === 'vacia') return { nivel: 'error', txt: 'La app está vacía y tu Drive tiene datos: no subí nada. Restaurá desde Drive.' };
+    if (nube.pending && e === 'offline') return { nivel: 'pending', txt: 'Sin conexión. Se sube sola cuando vuelva internet.' };
+    if (nube.pending && e === 'server') return { nivel: 'pending', txt: 'No se pudo subir. Reintento en un minuto.' };
+    if (nube.pending) return { nivel: 'pending', txt: 'Hay cambios por subir.' };
+    if (nube.lastAt) return { nivel: 'ok', txt: 'Copia cifrada al día · ' + relTiempo(nube.lastAt) };
+    return { nivel: 'ok', txt: 'Conectado. La copia se sube con el próximo cambio.' };
+  }
+  function pintarNube() { const el = document.getElementById('nubeEstado'); if (el) { const st = estadoNube(); el.textContent = st.txt; el.dataset.nivel = st.nivel; } }
+
+  // Conectar: un enlace real (en iPhone es la única forma de abrir Google desde la app instalada)
+  function urlGoogle(sesion) {
+    return 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({ client_id: GOOGLE_CLIENT_ID, redirect_uri: REDIRECT_URI, response_type: 'code', scope: SCOPE, access_type: 'offline', prompt: 'consent', state: sesion });
+  }
+  const botonGoogle = (id, txt) => `<a class="btn wide" id="${id}" href="#" role="button" style="text-decoration:none">${I.nube}${esc(txt || 'Continuar con Google')}</a>`;
+  function activarBotonGoogle(el) {
+    if (!el) return;
+    el.onclick = () => {
+      nube.pendingSession = idAzar(); nube.sessionAt = Date.now(); guardarNube();
+      el.href = urlGoogle(nube.pendingSession); el.target = '_blank'; el.rel = 'noopener';
+      window.pausarBloqueo();
+      setTimeout(hojaEsperando, 400);
+      empezarReclamo();
+    };
+  }
+  function hojaEsperando() {
+    abrirHoja('Conectando con Google', `<div style="display:grid;justify-items:center;gap:14px;padding:12px 0;text-align:center"><div class="spinner" style="width:34px;height:34px"></div>
+      <p class="muted">Elegí tu cuenta y tocá «Continuar» en la pantalla de Google (puede decir «Mis Finanzas»: es la misma conexión). Cuando diga «Listo», volvé a esta app.</p>
+      <a class="link" href="${esc(urlGoogle(nube.pendingSession))}" target="_blank" rel="noopener">Abrir Google de nuevo</a></div>`, null, () => { if (!nubeOn()) { pararReclamo(); } });
+  }
+  function pararReclamo() { clearInterval(tClaim); tClaim = null; }
+  function empezarReclamo() { pararReclamo(); tClaim = setInterval(reclamar, 2500); }
+  async function reclamar() {
+    if (!nube.pendingSession || reclamando) return;
+    if (Date.now() - (nube.sessionAt || 0) > 15 * 60000) { pararReclamo(); delete nube.pendingSession; guardarNube(); return; }
+    reclamando = true;
+    try {
+      const r = await broker('claim', { session: nube.pendingSession });
+      if (r.ok) {
+        pararReclamo();
+        nube = { refreshToken: r.refresh_token };
+        acceso = { token: r.access_token, exp: Date.now() + (r.expires_in || 3600) * 1000 };
+        guardarNube(); cerrarHoja(true);
+        await despuesDeGoogle();
+      }
+    } catch (e) { /* sigue esperando */ }
+    reclamando = false;
+  }
+  async function despuesDeGoogle() {
+    try { const a = await g('GET', 'https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)'); nube.email = a && a.user && a.user.emailAddress; guardarNube(); } catch (e) {}
+    let env = null;
+    try { env = await leerPrincipal(); } catch (e) { return toast('No pude leer tu Drive. Probá de nuevo desde Ajustes.'); }
+    pedirContrasenaCopias(env);
+  }
+  // Primera vez: elegir contraseña. Si ya hay copia: la contraseña con la que se creó.
+  function pedirContrasenaCopias(env, mal) {
+    const primera = !env;
+    abrirHoja(primera ? 'Último paso' : 'Tu contraseña de copias', `<div class="form">
+      ${mal ? '<div class="banner"><span class="sp">Esa contraseña no abre tus copias. Probá de nuevo.</span></div>' : ''}
+      ${nube.email ? `<p class="muted">Conectado como <b>${esc(nube.email)}</b></p>` : ''}
+      <p class="muted">${primera ? 'Elegí una contraseña para cifrar tus copias en Drive. Te la vamos a pedir sólo si cambiás de teléfono. Puede ser la misma que usás en Mis Finanzas.'
+        : `Tu Drive ya tiene una copia${env.savedAt ? ' (la última del ' + esc(fechaCorta(env.savedAt.slice(0, 10))) + ')' : ''}. Ingresá la contraseña con la que la creaste.`}</p>
+      <label class="field"><span>Contraseña</span><input id="cp1" type="password" autocomplete="${primera ? 'new-password' : 'current-password'}" placeholder="mínimo 8 caracteres"></label>
+      ${primera ? `<label class="field"><span>Repetila</span><input id="cp2" type="password" autocomplete="new-password"></label>
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:15px"><input type="checkbox" id="cpOk" style="width:22px;height:22px;flex:none;margin-top:1px">Entiendo que si la olvido, las copias no se pueden recuperar.</label>` : '<button class="link" id="cpReset" style="justify-self:start;color:var(--loss)">La olvidé: empezar de cero</button>'}
+      <button class="btn wide" id="cpGo">${primera ? 'Listo' : 'Abrir copia'}</button></div>`, (body) => {
+      setTimeout(() => body.querySelector('#cp1').focus(), 400);
+      const rs = body.querySelector('#cpReset'); if (rs) rs.onclick = empezarDeCero;
+      body.querySelector('#cpGo').onclick = async (e) => {
+        const p1 = body.querySelector('#cp1').value;
+        if (p1.length < 8) return toast('La contraseña tiene que tener al menos 8 caracteres');
+        if (primera) {
+          if (p1 !== body.querySelector('#cp2').value) return toast('Las contraseñas no coinciden');
+          if (!body.querySelector('#cpOk').checked) return toast('Confirmá que entendés que no se puede recuperar');
+          e.target.disabled = true;
+          await setClave(await Seg.claveNueva(p1)); nube.error = null; guardarNube();
+          cerrarHoja(); if (S.movs.length) programarSubida(); else nube.pending = false;
+          toast('Listo: cada cambio se guarda cifrado en tu Drive');
+          return;
+        }
+        e.target.disabled = true; e.target.textContent = 'Abriendo…';
+        const k = await Seg.claveDeSobre(p1, env);
+        try { const remoto = await Seg.abrir(k, env); await setClave(k); if (nube.error === 'nokey') nube.error = null; guardarNube(); elegirDatos(remoto, env.savedAt); }
+        catch (err) { pedirContrasenaCopias(env, true); }
+      };
+    });
+  }
+  // Con datos en los dos lados: combinar, usar Drive o usar el teléfono
+  function elegirDatos(remoto, savedAt) {
+    const rm = Array.isArray(remoto.movs) ? remoto.movs : [];
+    const aplicar = (base, movs, msg) => {
+      const g0 = S._g, tema = S.ajustes.tema;
+      S = Object.assign(VACIO(), base, { movs, ajustes: Object.assign(VACIO().ajustes, base.ajustes, { tema }) }); delete S.app; delete S.version;
+      if (g0) S._g = g0;
+      nube.cuantos = rm.length; guardarYa(); aplicarTema(); prevNum.clear();
+      ['v-activos', 'v-resumen'].forEach((id) => { $(id).innerHTML = ''; });
+      cerrarHoja(); render(); actualizar(); toast(msg); programarSubida();
+    };
+    if (!S.movs.length) return aplicar(remoto, rm, `${rm.length} movimientos recuperados de Drive`);
+    const ids = new Set(S.movs.map((m) => m.id)), extra = rm.filter((m) => !ids.has(m.id)).length;
+    abrirHoja('Hay datos en los dos lados', `<p class="muted">Este teléfono tiene <b>${S.movs.length}</b> movimientos y tu Drive <b>${rm.length}</b>${savedAt ? ' (copia del ' + esc(fechaCorta(savedAt.slice(0, 10))) + ')' : ''}.</p>
+      <button class="btn wide" id="edMez">Combinar (quedan ${S.movs.length + extra})</button>
+      <button class="btn sec wide" id="edDrive">Usar sólo los de Drive</button>
+      <button class="btn gray wide" id="edLocal">Usar sólo los de este teléfono</button>`, (body) => {
+      body.querySelector('#edMez').onclick = () => aplicar(S, S.movs.concat(rm.filter((m) => !ids.has(m.id))), 'Datos combinados');
+      body.querySelector('#edDrive').onclick = () => aplicar(remoto, rm, 'Datos de Drive restaurados');
+      body.querySelector('#edLocal').onclick = () => { nube.cuantos = S.movs.length; cerrarHoja(); subir(true); toast('Se usan los datos de este teléfono'); };
+    });
+  }
+  async function restaurarDeDrive() {
+    let env;
+    try { env = await leerPrincipal(); } catch (e) { return toast(e.message === 'reauth' ? 'Volvé a conectar tu cuenta de Google.' : 'No pude leer tu Drive. Revisá internet.'); }
+    if (!env) return toast('Todavía no hay copias en tu Drive.');
+    const k = await getClave(); if (!k) return pedirContrasenaCopias(env);
+    try { elegirDatos(await Seg.abrir(k, env), env.savedAt); } catch (e) { pedirContrasenaCopias(env, true); }
+  }
+  function empezarDeCero() {
+    abrirHoja('Empezar de cero', `<div class="form"><p class="muted">Se borran las copias de esta app en tu Drive (sin la contraseña no se pueden abrir) y se crea una nueva con los ${S.movs.length} movimientos de este teléfono. No toca las copias de Mis Finanzas.</p>
+      <label class="field"><span>Nueva contraseña</span><input id="np1" type="password" autocomplete="new-password" placeholder="mínimo 8 caracteres"></label>
+      <label class="field"><span>Repetila</span><input id="np2" type="password" autocomplete="new-password"></label>
+      <button class="btn danger wide" id="npGo">Borrar copias y empezar de cero</button></div>`, (body) => {
+      const b = body.querySelector('#npGo');
+      b.onclick = async () => {
+        const p1 = body.querySelector('#np1').value;
+        if (p1.length < 8 || p1 !== body.querySelector('#np2').value) return toast(p1.length < 8 ? 'Mínimo 8 caracteres' : 'Las contraseñas no coinciden');
+        if (!b.dataset.armado) { b.dataset.armado = 1; b.textContent = 'Tocá de nuevo para borrar las copias'; return; }
+        b.disabled = true; b.textContent = 'Borrando…';
+        try {
+          for (const f of await listar(`name contains '${DIARIA}' and trashed=false`)) await borrarArch(f.id);
+          for (const f of await listar(`name='${ARCH}' and trashed=false`)) await borrarArch(f.id);
+          nube.fileId = null; nube.ultimaDiaria = null; nube.cuantos = 0;
+          await setClave(await Seg.claveNueva(p1)); nube.error = null; guardarNube();
+          await subir(true); cerrarHoja(); toast('Copias nuevas creadas');
+        } catch (e) { b.disabled = false; b.textContent = 'Borrar copias y empezar de cero'; toast('No pude borrar las copias. Revisá internet.'); }
+      };
+    });
+  }
+  function cambiarContrasenaCopias() {
+    abrirHoja('Cambiar contraseña de copias', `<div class="form"><p class="muted">Las copias se vuelven a cifrar con la contraseña nueva. Las diarias anteriores se borran, porque usan la vieja.</p>
+      <label class="field"><span>Nueva contraseña</span><input id="np1" type="password" autocomplete="new-password" placeholder="mínimo 8 caracteres"></label>
+      <label class="field"><span>Repetila</span><input id="np2" type="password" autocomplete="new-password"></label>
+      <button class="btn wide" id="npGo">Guardar</button></div>`, (body) => {
+      body.querySelector('#npGo').onclick = async (e) => {
+        const p1 = body.querySelector('#np1').value;
+        if (p1.length < 8 || p1 !== body.querySelector('#np2').value) return toast(p1.length < 8 ? 'Mínimo 8 caracteres' : 'Las contraseñas no coinciden');
+        e.target.disabled = true;
+        try {
+          for (const f of await listar(`name contains '${DIARIA}2' and trashed=false`)) await borrarArch(f.id);
+          nube.ultimaDiaria = null; await setClave(await Seg.claveNueva(p1)); await subir(true);
+          cerrarHoja(); toast('Contraseña cambiada');
+        } catch (err) { e.target.disabled = false; toast('No pude cambiarla. Revisá internet.'); }
+      };
+    });
+  }
+  async function desconectarNube() {
+    const rt = nube.refreshToken;
+    nube = {}; acceso = null; guardarNube(); await setClave(null);
+    if (rt) fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(rt), { method: 'POST', mode: 'no-cors' }).catch(() => {});
+  }
+  function htmlNubeAjustes() {
+    if (!nubeOn()) return `<div class="card" style="background:var(--surface-2)"><h2>Copia en Google Drive</h2>
+      <p class="muted" style="font-size:13px">Entrá con tu cuenta de Google y cada cambio se guarda solo en tu Drive, cifrado con una contraseña tuya. Si cambiás o perdés el teléfono, recuperás todo. La app sólo ve su propia carpeta oculta, no tus archivos.</p>
+      ${botonGoogle('nGo')}</div>`;
+    return `<div class="card" style="background:var(--surface-2)"><h2>Copia en Google Drive</h2>
+      <p style="margin:0;font-size:15px"><b>${esc(nube.email || 'Cuenta de Google')}</b></p>
+      <p class="muted" id="nubeEstado" style="font-size:13px"></p>
+      <div class="btns"><button class="btn sec" id="nAhora">Subir ahora</button><button class="btn gray" id="nRest">Restaurar desde Drive</button></div>
+      <div class="btns"><button class="btn gray" id="nPass">Cambiar contraseña</button><button class="btn danger" id="nOff">Desconectar</button></div>
+      <p class="muted" style="font-size:12px">Una copia siempre al día y una por día (últimos ${DIAS_GUARDA}). Para borrarlas: Drive → Configuración → Administrar apps → Mis Finanzas → Borrar datos ocultos (borra también las de Mis Finanzas).</p></div>`;
+  }
+  function montarNubeAjustes(body) {
+    activarBotonGoogle(body.querySelector('#nGo'));
+    pintarNube();
+    const on = (id, fn) => { const b = body.querySelector(id); if (b) b.onclick = fn; };
+    on('#nAhora', async () => { await subir(true); toast(estadoNube().txt); });
+    on('#nRest', restaurarDeDrive);
+    on('#nPass', cambiarContrasenaCopias);
+    on('#nOff', async () => { if (!confirm('¿Desconectar Google? Las copias quedan en tu Drive; tus datos siguen en este teléfono.')) return; await desconectarNube(); abrirAjustes(); toast('Google desconectado'); });
+  }
+
   /* ---------- datos de ejemplo ---------- */
   async function cargarDemo() {
     toast('Armando ejemplo con precios reales…');
@@ -1255,12 +1547,16 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     if (eligiendo) { if (!document.hidden) setTimeout(() => { eligiendo = false; }, 1500); return; }
     if (document.hidden) {
       ocultaDesde = Date.now(); if (tGuardar) guardarYa();
+      if (nubeOn() && nube.pending && tSync) { clearTimeout(tSync); tSync = null; subir(); }
       if (Seg.activo()) document.body.classList.add('privado');   // tapa el contenido en el selector de apps
       return;
     }
     if (Seg.activo() && Date.now() - ocultaDesde >= (S.ajustes.bloqueo ?? 60) * 1000) { location.reload(); return; }
     document.body.classList.remove('privado'); actualizar(); programar();
+    if (nube.pendingSession) reclamar();
+    if (nubeOn() && (nube.pending || nube.error === 'server')) subir();
   });
+  window.addEventListener('online', () => { if (nubeOn() && nube.pending) subir(); });
   window.addEventListener('pagehide', () => { if (tGuardar) guardarYa(); });
   setInterval(pintarVivo, 1000);
 
@@ -1271,6 +1567,8 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     aplicarTema(); listo = true;
     render();
     actualizar(); programar();
+    if (nube.pendingSession) { empezarReclamo(); reclamar(); }
+    if (nubeOn() && nube.pending) subir();
   })();
   window.App = { estado: () => S, calc: () => ultimoCalc, actualizar, normalizar, revisar, agregarLote };
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
