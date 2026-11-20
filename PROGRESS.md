@@ -18,6 +18,7 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] Carga por captura con Gemini (`gemini-flash-latest`, respaldo `-lite`), clave pegada en Ajustes. Antes de elegir las fotos la app pregunta de quién son (mías / de mi novia / compartidas 50-50). Revisión obligatoria antes de guardar.
 - [x] Importar archivo: copia completa (reemplaza) o lote `{"app":"mis-inversiones","tipo":"movimientos","movs":[…]}` que se AGREGA (saltea ids repetidos, titular por id o por letra M/P, busca el dólar de cada fecha). Lo usa Claude para cargar la tanda inicial de capturas con M/P a mano (decisión 2026-11-19: las letras a mano son sólo para esa tanda).
 - [x] Elegir fotos/archivos o bajar copia no dispara el bloqueo por PIN.
+- [x] v1.5.0: rincón del dólar debajo del título (Oficial + USDT en vivo de Binance USDTARS, toca → Seguimiento). Seguimiento: 5 dólares con brecha, buscador con sugerencias en todos los mercados (data912 + cripto conocidas + probar cualquier símbolo en Binance), minigráficos. Logo «MI».
 - [x] v1.4.0: ingreso en USD con «pesos que pagaste» (m.pesos): el capital cuenta los pesos reales. Importar archivo también ACTUALIZA movimientos con el mismo id (conserva su dólar).
 - [x] Seguridad: CSP estricta (script/connect sólo a las APIs usadas), anti-iframe, `esc()` en todo.
   PIN de 4/6 dígitos que CIFRA los datos (AES-GCM 256, PBKDF2 600 000, igual que vault de Mis Finanzas), 5 intentos → espera creciente,

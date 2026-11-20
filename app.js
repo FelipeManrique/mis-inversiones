@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.4.0';
+  const VERSION = '1.5.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -156,11 +156,10 @@
         Q.fxAt = Date.now();
       }).catch(() => { error = true; }));
     }
-    n.listas.forEach((l) => tareas.push(pedir('https://data912.com/live/' + l).then((arr) => {
-      const m = {}; arr.forEach((q) => { const c = q.c || (q.px_bid && q.px_ask ? (q.px_bid + q.px_ask) / 2 : q.px_bid || q.px_ask || 0); m[q.symbol] = { c, pct: q.pct_change }; });
-      Q.lists[l] = m;
-    }).catch(() => { error = true; })));
+    n.listas.forEach((l) => tareas.push(pedir('https://data912.com/live/' + l).then((arr) => guardarLista(l, arr)).catch(() => { error = true; })));
     if (n.cripto.length) tareas.push(precioCripto(n.cripto).catch(() => { error = true; }));
+    // Dólar cripto = USDT en pesos (Binance, en vivo)
+    tareas.push(pedir('https://api.binance.com/api/v3/ticker/24hr?symbol=USDTARS').then((x) => { Q.usdt = { px: +x.lastPrice, pct: +x.priceChangePercent }; }).catch(() => {}));
     await Promise.all(tareas);
     Q.at = Date.now(); Q.err = error; cargando = false;
     guardarQ();
@@ -171,6 +170,17 @@
       const el = document.querySelector(`.asset[data-k="${CSS.escape(a.key)}"]`);
       if (el) { el.classList.remove('flash-up', 'flash-down'); void el.offsetWidth; el.classList.add(a.cotiz.px > prev ? 'flash-up' : 'flash-down'); }
     });
+  }
+  function guardarLista(l, arr) {
+    const m = {}; arr.forEach((q) => { const c = q.c || (q.px_bid && q.px_ask ? (q.px_bid + q.px_ask) / 2 : q.px_bid || q.px_ask || 0); m[q.symbol] = { c, pct: q.pct_change }; });
+    Q.lists[l] = m;
+  }
+  const usdt = () => (Q.usdt && Q.usdt.px ? Q.usdt : fxHoy().cripto ? { px: fxHoy().cripto, pct: null } : null);
+  // Rincón del dólar (debajo del título, en todas las pantallas)
+  function pintarFx() {
+    const fx = fxHoy(), u = usdt(), el = $('fxbar'); if (!el) return;
+    if (!fx.oficial) { el.textContent = 'Cargando dólar…'; return; }
+    el.innerHTML = `Oficial <b>${esc(ars(fx.oficial))}</b> · USDT <b>${u ? esc(precioF(u.px, 'ARS')) : '—'}</b>${u && u.pct !== null && isFinite(u.pct) ? ` <span class="${clsSigno(u.pct, 0.005)}">${esc((u.pct > 0 ? '+' : '') + C.num(u.pct, 1))}%</span>` : ''}`;
   }
   async function precioCripto(syms) {
     const pares = syms.map((s) => s + 'USDT');
@@ -241,13 +251,13 @@
   }
 
   /* ================= gráficos ================= */
-  function spark(serie, cls) {
+  function spark(serie, cls, mini) {
     if (!serie || serie.length < 2) return '';
     const w = 300, h = 34, min = Math.min(...serie), max = Math.max(...serie), r = max - min || 1;
     const pts = serie.map((v, i) => [i / (serie.length - 1) * w, h - 3 - (v - min) / r * (h - 6)]);
     const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
     const col = cls === 'neg' ? 'var(--loss)' : cls === 'pos' ? 'var(--gain)' : 'var(--label-3)';
-    return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    return `<svg class="spark${mini ? ' mini' : ''}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
       <path d="${d}L${w} ${h}L0 ${h}Z" style="fill:${col};opacity:.10"/><path d="${d}" style="fill:none;stroke:${col};stroke-width:1.8;vector-effect:non-scaling-stroke;stroke-linejoin:round"/></svg>`;
   }
 
@@ -333,6 +343,7 @@
     ultimoCalc = calc();
     if (ultimoCalc.completo) guardarFoto();
     $('carteraNombre').textContent = S.ajustes.cartera ? nombreCartera(S.ajustes.cartera) : 'Todas';
+    pintarFx();
     if (vista === 'activos') renderActivos();
     else if (vista === 'resumen') renderResumen();
     else if (vista === 'seguir') renderSeguir();
@@ -476,18 +487,19 @@
       <div class="weight"><i style="width:${Math.min(100, a.peso * 100).toFixed(1)}%"></i></div>
     </button>`;
   }
-  function sparkDe(a) {
+  function sparkDe(a, mini) {
     const h = histMem[a.key]; if (!h || !h.s.length) return '';
     const serie = h.s.slice(-30).map((p) => p.c); if (a.cotiz) serie.push(a.cotiz.px);
-    return spark(serie, serie[serie.length - 1] >= serie[0] ? 'pos' : 'neg');
+    return spark(serie, serie[serie.length - 1] >= serie[0] ? 'pos' : 'neg', mini);
   }
   let sparkCorriendo = false;
   async function cargarSparks() {
     if (sparkCorriendo || !ultimoCalc) return; sparkCorriendo = true;
-    const falta = ultimoCalc.abiertos.filter((a) => !(histMem[a.key] && histMem[a.key].d === hoyISO()) && (a.clase === 'cripto' || HIST[a.clase]));
+    const lista = ultimoCalc.abiertos.concat(S.seguir.map((w) => ({ key: C.clave(w.clase, w.ticker), clase: w.clase, ticker: w.ticker.toUpperCase(), cotiz: cotizar(w.clase, w.ticker) })));
+    const falta = lista.filter((a) => !(histMem[a.key] && histMem[a.key].d === hoyISO()) && (a.clase === 'cripto' || HIST[a.clase]));
     for (const a of falta) {
       await historial(a.clase, a.ticker);
-      const el = document.querySelector(`[data-spk="${CSS.escape(a.key)}"]`); if (el) el.innerHTML = sparkDe(a);
+      document.querySelectorAll(`[data-spk="${CSS.escape(a.key)}"]`).forEach((el) => { el.innerHTML = sparkDe(a, el.classList.contains('spk-mini')); });
     }
     sparkCorriendo = false;
   }
@@ -570,24 +582,37 @@
 
   /* ---------- Seguimiento ---------- */
   function renderSeguir() {
-    const fx = fxHoy(), r = ultimoCalc;
+    const fx = fxHoy(), r = ultimoCalc, u = usdt();
     const fila = (cl, t, rmv) => {
-      const q = cotizar(cl, t);
-      return `<div class="item" style="cursor:pointer" data-ver="${esc(cl)}|${esc(t)}"><span class="ic" style="color:${COLOR_CLASE[cl]}">${I.chart}</span><span class="tx"><b>${esc(t)}</b><span>${esc((C.CLASES[cl] || {}).nombre || cl)}</span></span>
-        <span class="rt num">${q ? esc(precioF(q.px, q.cur)) : '—'}${q && q.pct !== null && q.pct !== undefined ? `<span class="${clsSigno(q.pct, 0.005)}">${esc(pctf(q.pct / 100))} hoy</span>` : ''}</span>
-        ${rmv ? `<button class="close" data-quitar="${esc(cl)}|${esc(t)}" aria-label="Dejar de seguir">${I.x}</button>` : ''}</div>`;
+      const q = cotizar(cl, t), k = C.clave(cl, t);
+      const a = { key: k, cotiz: q };
+      return `<div class="item seg-row" data-ver="${esc(cl)}|${esc(t)}"><span class="tx"><b>${esc(t)}</b><span>${esc((C.CLASES[cl] || {}).corto || cl)}${S.nombres[k] ? ' · ' + esc(S.nombres[k]) : ''}</span></span>
+        <span class="spk spk-mini" data-spk="${esc(k)}">${sparkDe(a, true)}</span>
+        <span class="rt num">${q ? esc(precioF(q.px, q.cur)) : '—'}${q && q.pct !== null && q.pct !== undefined ? `<span class="tag ${clsSigno(q.pct, 0.005)}">${esc(pctf(q.pct / 100))}</span>` : ''}</span>
+        ${rmv ? `<button class="close" data-quitar="${esc(cl)}|${esc(t)}" aria-label="Dejar de seguir ${esc(t)}">${I.x}</button>` : ''}</div>`;
     };
-    const dolares = fx.oficial ? [['Oficial', fx.oficial], ['MEP (bolsa)', fx.mep], ['Contado con liqui', fx.ccl], ['Cripto', fx.cripto], ['Blue', fx.blue]] : [];
+    const brecha = (v) => (fx.oficial && v ? `<span>brecha ${esc(C.num((v / fx.oficial - 1) * 100, 1))} %</span>` : '');
+    const dolares = fx.oficial ? [
+      ['Oficial', 'Banco Nación', fx.oficial, null, false],
+      ['Cripto (USDT)', 'Binance · en vivo', u && u.px, u && u.pct, true],
+      ['MEP', 'Bolsa', fx.mep, null, true],
+      ['Contado con liqui', 'CCL', fx.ccl, null, true],
+      ['Blue', 'Informal', fx.blue, null, true],
+    ] : [];
     $('v-seguir').innerHTML = `
       <div class="section-title">Dólar<span class="sp"></span><div class="live" style="margin:0"><i></i><span class="txt"></span></div></div>
-      <div class="group">${dolares.map((d) => `<div class="item"><span class="tx"><b>${esc(d[0])}</b></span><span class="rt num">${esc(ars(d[1]))}</span></div>`).join('') || '<p class="muted" style="padding:14px">Cargando…</p>'}</div>
-      <div class="section-title">Siguiendo<span class="sp"></span><button class="link" id="addSeguir">Agregar</button></div>
-      <div class="group">${S.seguir.map((w) => fila(w.clase, w.ticker.toUpperCase(), true)).join('') || '<p class="muted" style="padding:14px">Sumá activos que quieras mirar aunque no los tengas.</p>'}</div>
+      <div class="group">${dolares.map((d) => `<div class="item"><span class="tx"><b>${esc(d[0])}</b><span>${esc(d[1])}</span></span>
+        <span class="rt num">${d[2] ? esc(precioF(d[2], 'ARS')) : '—'}${d[3] !== null && d[3] !== undefined && isFinite(d[3]) ? `<span class="${clsSigno(d[3], 0.005)}">${esc((d[3] > 0 ? '+' : '') + C.num(d[3], 1))} % hoy</span>` : ''}${d[4] ? brecha(d[2]) : ''}</span></div>`).join('') || '<p class="muted" style="padding:14px">Cargando…</p>'}</div>
+      <div class="section-title">Siguiendo<span class="sp"></span><button class="link" id="addSeguir">${I.plus.replace('class="i"', 'class="i" style="width:16px;height:16px;vertical-align:-3px"')} Agregar</button></div>
+      ${S.seguir.length ? `<div class="group">${S.seguir.map((w) => fila(w.clase, w.ticker.toUpperCase(), true)).join('')}</div>`
+        : `<button class="drop" id="addSeguir2">${I.plus}Armá tu lista de seguimiento<small>Buscá CEDEARs, acciones, bonos, letras, ONs, acciones de EE.UU. o cripto, aunque no las tengas.</small></button>`}
       ${r.abiertos.length ? `<div class="section-title">Tus activos</div><div class="group">${r.abiertos.map((a) => fila(a.clase, a.ticker, false)).join('')}</div>` : ''}
-      <p class="foot">Tocá un activo para ver su gráfico de precios.</p>`;
+      <p class="foot">Precios cada ${S.ajustes.intervalo || 30} s mientras la app está abierta. Tocá un activo para ver su gráfico.</p>`;
     $('addSeguir').onclick = abrirSeguir;
+    const a2 = $('addSeguir2'); if (a2) a2.onclick = abrirSeguir;
     $('v-seguir').querySelectorAll('[data-ver]').forEach((el) => { el.onclick = (e) => { if (e.target.closest('[data-quitar]')) return; const [cl, t] = el.dataset.ver.split('|'); abrirActivo(C.clave(cl, t), { clase: cl, ticker: t }); }; });
-    $('v-seguir').querySelectorAll('[data-quitar]').forEach((b) => { b.onclick = () => { const [cl, t] = b.dataset.quitar.split('|'); S.seguir = S.seguir.filter((w) => !(w.clase === cl && w.ticker.toUpperCase() === t)); guardar(); render(); }; });
+    $('v-seguir').querySelectorAll('[data-quitar]').forEach((b) => { b.onclick = () => { const [cl, t] = b.dataset.quitar.split('|'); S.seguir = S.seguir.filter((w) => !(w.clase === cl && w.ticker.toUpperCase() === t)); guardar(); render(); toast('Dejaste de seguir ' + t); }; });
+    cargarSparks();
   }
 
   /* ---------- Movimientos ---------- */
@@ -631,7 +656,7 @@
 
   /* ================= hojas ================= */
   let hojaActual = null;
-  function abrirHoja(titulo, html, alMontar) {
+  function abrirHoja(titulo, html, alMontar, alCerrar) {
     cerrarHoja(true);
     const scrim = document.createElement('div'); scrim.className = 'scrim';
     const sh = document.createElement('div'); sh.className = 'sheet'; sh.setAttribute('role', 'dialog'); sh.setAttribute('aria-modal', 'true'); sh.setAttribute('aria-label', titulo);
@@ -643,12 +668,13 @@
     let y0 = null; sh.addEventListener('touchstart', (e) => { if (sh.scrollTop <= 0) y0 = e.touches[0].clientY; }, { passive: true });
     sh.addEventListener('touchmove', (e) => { if (y0 === null) return; const dy = e.touches[0].clientY - y0; if (dy > 0) { sh.style.transition = 'none'; sh.style.transform = `translateY(${dy}px)`; } }, { passive: true });
     sh.addEventListener('touchend', (e) => { if (y0 === null) return; const dy = e.changedTouches[0].clientY - y0; y0 = null; sh.style.transition = ''; sh.style.transform = ''; if (dy > 110) cerrarHoja(); });
-    hojaActual = { scrim, sh };
+    hojaActual = { scrim, sh, alCerrar };
     if (alMontar) alMontar(sh.querySelector('.sheet-body'), sh);
     return sh;
   }
   function cerrarHoja(inmediato) {
-    if (!hojaActual) return; const { scrim, sh } = hojaActual; hojaActual = null;
+    if (!hojaActual) return; const { scrim, sh, alCerrar } = hojaActual; hojaActual = null;
+    if (alCerrar) setTimeout(alCerrar, 0);
     if (inmediato) { scrim.remove(); sh.remove(); return; }
     scrim.classList.remove('on'); sh.classList.remove('on'); setTimeout(() => { scrim.remove(); sh.remove(); }, 420);
   }
@@ -938,18 +964,56 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   }
 
   /* ---------- seguir un activo ---------- */
-  function abrirSeguir() {
-    abrirHoja('Seguir un activo', `<div class="form"><div class="cols"><label class="field"><span>Tipo de activo</span><select id="sClase">${Object.keys(C.CLASES).filter((k) => k !== 'fci' && k !== 'otro').map((k) => `<option value="${k}">${esc(C.CLASES[k].nombre)}</option>`).join('')}</select></label>
-      <label class="field"><span>Ticker</span><input id="sTicker" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="QQQ, GGAL, ETH"></label></div>
-      <button class="btn wide" id="sOk">Seguir</button></div>`, (body) => {
-      body.querySelector('#sOk').onclick = async () => {
-        const clase = body.querySelector('#sClase').value, t = body.querySelector('#sTicker').value.trim().toUpperCase();
-        if (!t) return toast('Escribí el ticker');
-        if (!S.seguir.some((w) => w.clase === clase && w.ticker === t)) S.seguir.push({ clase, ticker: t });
-        guardar(); cerrarHoja(); await actualizar();
-        if (!cotizar(clase, t)) toast('No encontré precio para ' + t + '. Revisá el ticker y el tipo.');
-      };
+  const MERCADOS = [['cedear', 'arg_cedears'], ['accion', 'arg_stocks'], ['bono', 'arg_bonds'], ['letra', 'arg_notes'], ['on', 'arg_corp'], ['usa', 'usa_stocks']];
+  const CRIPTO_POP = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'TRX', 'TON', 'AVAX', 'LINK', 'DOT', 'LTC', 'POL', 'SHIB', 'UNI', 'ATOM', 'NEAR', 'ARB', 'OP', 'PEPE', 'SUI', 'USDC'];
+  async function cargarListas() {
+    await Promise.all(MERCADOS.filter((x) => !Q.lists[x[1]]).map((x) => pedir('https://data912.com/live/' + x[1]).then((arr) => guardarLista(x[1], arr)).catch(() => {})));
+  }
+  function buscarActivos(texto) {
+    const q = texto.trim().toUpperCase().replace(/\s+/g, '');
+    if (!q) return [];
+    const out = [];
+    MERCADOS.forEach(([cl, l]) => {
+      const list = Q.lists[l]; if (!list) return;
+      Object.keys(list).forEach((t) => {
+        if (!t.includes(q)) return;
+        // las versiones en dólares (…D / …C) de CEDEARs y bonos sólo si se buscan exactas
+        if ((cl === 'cedear' || cl === 'bono') && /[DC]$/.test(t) && list[t.slice(0, -1)] && t !== q) return;
+        out.push({ clase: cl, ticker: t, q: { px: list[t].c, cur: monedaCotiz(cl, t, list), pct: list[t].pct } });
+      });
     });
+    CRIPTO_POP.filter((t) => t.includes(q)).forEach((t) => out.push({ clase: 'cripto', ticker: t, q: Q.crypto[t] ? { px: Q.crypto[t].px, cur: 'USD', pct: Q.crypto[t].pct } : null }));
+    if (/^[A-Z0-9]{2,10}$/.test(q) && !CRIPTO_POP.includes(q)) out.push({ clase: 'cripto', ticker: q, q: null, probar: true });
+    // exacto > empieza con > contiene; a igual coincidencia: cripto conocidas, CEDEAR, acciones, bonos… y al final "probar en Binance"
+    const ORDEN = { cripto: 0, cedear: 1, accion: 2, bono: 3, letra: 4, on: 5, usa: 6 };
+    const peso = (x) => (x.probar ? 9 : x.ticker === q ? 0 : x.ticker.startsWith(q) ? 1 : 2) * 1000 + x.ticker.length * 10 + ORDEN[x.clase];
+    return out.sort((a, b) => peso(a) - peso(b)).slice(0, 40);
+  }
+  function abrirSeguir() {
+    abrirHoja('Seguir activos', `<label class="field"><span>Buscar por ticker</span><input id="sBuscar" type="search" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="SPY, GGAL, AL30, BTC…" enterkeyhint="search"></label>
+      <div id="sRes" class="group"><p class="muted" style="padding:14px">Cargando mercados…</p></div>
+      <p class="foot">CEDEARs, acciones y bonos: BYMA vía data912 (~20 s). Cripto: Binance. Tocá para seguir o dejar de seguir.</p>`, async (body) => {
+      const inp = body.querySelector('#sBuscar'), res = body.querySelector('#sRes');
+      const sigo = (cl, t) => S.seguir.some((w) => w.clase === cl && w.ticker.toUpperCase() === t);
+      const pintar = () => {
+        const r = buscarActivos(inp.value);
+        if (!inp.value.trim()) { res.innerHTML = `<p class="muted" style="padding:14px">Escribí un ticker o parte de él. Ya seguís ${S.seguir.length} activo${S.seguir.length === 1 ? '' : 's'}.</p>`; return; }
+        if (!r.length) { res.innerHTML = '<p class="muted" style="padding:14px">No encontré nada con eso.</p>'; return; }
+        res.innerHTML = r.map((x) => `<button class="item" data-add="${esc(x.clase)}|${esc(x.ticker)}"><span class="ic" style="color:${COLOR_CLASE[x.clase]}">${sigo(x.clase, x.ticker) ? '<svg class="i" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg>' : I.plus}</span>
+          <span class="tx"><b>${esc(x.ticker)}</b><span>${esc(C.CLASES[x.clase].nombre)}${x.probar ? ' · probar en Binance' : ''}</span></span>
+          <span class="rt num">${x.q && x.q.px ? esc(precioF(x.q.px, x.q.cur)) : ''}${x.q && x.q.pct !== null && x.q.pct !== undefined ? `<span class="${clsSigno(x.q.pct, 0.005)}">${esc(pctf(x.q.pct / 100))}</span>` : ''}</span></button>`).join('');
+        res.querySelectorAll('[data-add]').forEach((b) => { b.onclick = async () => {
+          const [cl, t] = b.dataset.add.split('|');
+          if (sigo(cl, t)) { S.seguir = S.seguir.filter((w) => !(w.clase === cl && w.ticker.toUpperCase() === t)); toast('Dejaste de seguir ' + t); }
+          else { S.seguir.push({ clase: cl, ticker: t }); toast('Siguiendo ' + t); }
+          guardar(); pintar();
+          if (cl === 'cripto' && sigo(cl, t)) { await actualizar(); if (!cotizar(cl, t)) { S.seguir = S.seguir.filter((w) => !(w.clase === cl && w.ticker === t)); guardar(); toast(t + ' no cotiza en Binance contra USDT'); pintar(); } }
+        }; });
+      };
+      inp.addEventListener('input', pintar);
+      setTimeout(() => inp.focus(), 350);
+      await cargarListas(); pintar();
+    }, () => { actualizar(); });
   }
 
   /* ---------- cartera ---------- */
@@ -1172,6 +1236,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   $('tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (b && b.dataset.v !== vista) irA(b.dataset.v); });
   $('fab').onclick = abrirCargar;
   $('btnAjustes').onclick = abrirAjustes;
+  $('fxbar').onclick = () => { if (vista !== 'seguir') irA('seguir'); };
   $('btnCartera').onclick = abrirCarteras;
   $('fileIn').addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; cerrarHoja(true); procesarCapturas(fs); });
 

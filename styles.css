@@ -407,3 +407,18 @@ body.privado main, body.privado .dock, body.privado .sheet { filter: blur(24px);
 .asset { min-width: 0; overflow: hidden; }
 .a-row .tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .asset { grid-template-columns: minmax(0, 1fr); }
+
+/* rincón del dólar (debajo del título) */
+.titulo { flex: 1; min-width: 0; display: grid; gap: 0; }
+.titulo h1 { flex: none; }
+.fxbar { border: 0; background: none; padding: 0; margin: 0; text-align: left; font-size: 12px; line-height: 16px; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 16px; }
+.fxbar b { font-weight: 600; color: var(--label); }
+.fxbar .pos, .fxbar .neg { font-weight: 600; }
+/* seguimiento */
+.spark.mini { width: 64px; height: 26px; }
+.spk-mini { flex: none; width: 64px; display: block; }
+.seg-row { cursor: pointer; }
+.seg-row .tx b { font-size: 16px; }
+.item .rt .tag { margin-top: 2px; display: inline-flex; }
+.topbar { flex-wrap: wrap; row-gap: 0; }
+.topbar .fxbar { flex: 0 0 100%; margin-top: -6px; padding-bottom: 2px; font-size: 13px; line-height: 18px; }
