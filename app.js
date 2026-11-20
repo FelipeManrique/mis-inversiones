@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.3.0';
+  const VERSION = '2.4.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1262,7 +1262,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         <button class="btn sec" id="aUpd">Buscar actualización</button>
         <p class="muted" style="font-size:13px">Trae la última versión publicada y vuelve a abrir la app. Tus datos no se tocan.</p></div>
       <p class="foot">Precios: data912, Binance, dolarapi y ArgentinaDatos. Sólo organiza tus datos; no es asesoramiento financiero.</p>`, (body) => {
-      body.querySelectorAll('#aTema button').forEach((b) => { b.onclick = () => { S.ajustes.tema = b.dataset.val; guardar(); aplicarTema(); body.querySelectorAll('#aTema button').forEach((x) => x.classList.toggle('on', x === b)); }; });
+      body.querySelectorAll('#aTema button').forEach((b) => { b.onclick = () => { if (S.ajustes.tema === b.dataset.val) return; S.ajustes.tema = b.dataset.val; guardar(); aplicarTema(); body.querySelectorAll('#aTema button').forEach((x) => x.classList.toggle('on', x === b)); reiniciarPorTema(); }; });
       body.querySelectorAll('#aInt button').forEach((b) => { b.onclick = () => { S.ajustes.intervalo = +b.dataset.val; guardar(); programar(); body.querySelectorAll('#aInt button').forEach((x) => x.classList.toggle('on', x === b)); }; });
       const vid = body.querySelector('#aVidrio');
       vid.oninput = () => { S.ajustes.vidrio = +vid.value; aplicarTema(); };
@@ -1793,6 +1793,18 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     guardar(); if (vista === 'ajustes') abrirAjustes(); render(); toast(`Cartera «${x.cartera.nombre}» restaurada con ${esta.length} movimientos`);
   }
 
+  // El iPhone pinta la franja de la hora/wifi sólo al abrir la app: al cambiar el tema, reinicio rápido
+  // (sin pedir PIN de nuevo) para que tome el color nuevo. Sólo en la app instalada.
+  async function reiniciarPorTema() {
+    const instalada = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    if (!instalada) return;
+    clearTimeout(tGuardar); tGuardar = null;
+    try { localStorage.setItem(KEY_TEMA, S.ajustes.tema || ''); } catch (e) {}
+    try { if (Seg.activo()) { await Seg.guardar(S); await Seg.sesionCorta(); } else localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+    try { sessionStorage.setItem('mis-inversiones:volverA', 'ajustes'); } catch (e) {}
+    document.body.style.transition = 'opacity .18s'; document.body.style.opacity = '0';
+    setTimeout(() => location.reload(), 180);
+  }
   async function buscarActualizacion() {
     toast('Buscando la última versión…');
     if (tGuardar) guardarYa();
@@ -1905,9 +1917,10 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   (async function iniciar() {
     try { const t = localStorage.getItem(KEY_TEMA); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
     pintarBarraEstado();   // antes del PIN, para que la pantalla de bloqueo ya tenga la barra del color correcto
-    if (Seg.activo()) cargar(await Seg.pedirPin()); else cargar();
+    if (Seg.activo()) cargar((await Seg.retomarSesion()) || await Seg.pedirPin()); else cargar();
     aplicarTema(); listo = true;
     render();
+    try { if (sessionStorage.getItem('mis-inversiones:volverA') === 'ajustes') { sessionStorage.removeItem('mis-inversiones:volverA'); abrirAjustes(); } } catch (e) {}
     actualizar(); programar();
     if (nube.pendingSession) { empezarReclamo(); reclamar(); }
     if (nubeOn() && nube.pending) subir();

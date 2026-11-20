@@ -60,6 +60,22 @@
     const datos = await abrir(k, sobre);    // error = PIN incorrecto
     clavePin = k; return datos;
   }
+  // Reinicio corto (al cambiar el tema): la llave del PIN (CryptoKey, no exportable) se guarda 15 s en IndexedDB
+  // para no pedir el PIN de nuevo en ESE reinicio. Se borra apenas se usa o vence.
+  function idbSesion() { return new Promise((res, rej) => { const r = indexedDB.open('mis-inversiones-sesion', 1); r.onupgradeneeded = () => r.result.createObjectStore('s'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+  async function sesionCorta() {
+    if (!clavePin) return;
+    const d = await idbSesion();
+    await new Promise((res, rej) => { const tx = d.transaction('s', 'readwrite'); tx.objectStore('s').put({ k: clavePin, t: Date.now() }, 'x'); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  }
+  async function retomarSesion() {
+    try {
+      const d = await idbSesion();
+      const v = await new Promise((res) => { const tx = d.transaction('s', 'readwrite'), st = tx.objectStore('s'), q = st.get('x'); q.onsuccess = () => { st.delete('x'); res(q.result); }; q.onerror = () => res(null); });
+      if (!v || Date.now() - v.t > 15000) return null;
+      const datos = await abrir(v.k, leerSobre()); clavePin = v.k; return datos;
+    } catch (e) { return null; }
+  }
   function quitar() { clavePin = null; localStorage.removeItem(K_SOBRE); localStorage.removeItem('mis-inversiones:faceid'); }
 
   /* ---------- pantalla de PIN (teclado propio, como el de iOS) ---------- */
@@ -203,5 +219,5 @@
   }
 
   root.Seguridad = { activo, activar, guardar, probar, quitar, pedirPin, elegirPin, teclado, sellar, abrir, claveNueva, claveDeSobre, desbloqueada: () => !!clavePin,
-    bioDisponible, activarBio, quitarBio, bioActivo: () => !!bioGuardado() };
+    bioDisponible, activarBio, quitarBio, bioActivo: () => !!bioGuardado(), sesionCorta, retomarSesion };
 })(self);
