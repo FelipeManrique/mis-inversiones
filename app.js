@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.2.0';
+  const VERSION = '2.3.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -112,6 +112,8 @@
       const oscuro = t ? t === 'dark' : /dark/.test(m.getAttribute('media') || '');
       m.setAttribute('content', oscuro ? '#0B0907' : '#F7F2EC');
     });
+    const cs = document.querySelector('meta[name="color-scheme"]');
+    if (cs) cs.setAttribute('content', t === 'dark' ? 'dark' : t === 'light' ? 'light' : 'light dark');
   }
 
   try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => pintarBarraEstado()); } catch (e) {}
@@ -124,15 +126,12 @@
     pintarBarraEstado();
     // color de acento elegido (vacío = el naranja original)
     const c = S.ajustes.acento;
-    ['--accent', '--accent-btn', '--accent-ink', '--accent-tint', '--aurora-1', '--aurora-2', '--aurora-3'].forEach((v) => root.removeProperty(v));
+    ['--accent', '--accent-btn', '--accent-ink', '--accent-tint', '--aurora-1', '--aurora-2', '--aurora-3'].forEach((v) => root.removeProperty(v));   // la aurora sale de --accent en el CSS
     if (c) {
       root.setProperty('--accent', c);
       root.setProperty('--accent-btn', `color-mix(in srgb, ${c} 88%, #000)`);
       root.setProperty('--accent-ink', `color-mix(in srgb, ${c} 72%, var(--label))`);
       root.setProperty('--accent-tint', `color-mix(in srgb, ${c} 17%, transparent)`);
-      root.setProperty('--aurora-1', `color-mix(in srgb, ${c} 28%, transparent)`);
-      root.setProperty('--aurora-2', `color-mix(in srgb, ${c} 12%, transparent)`);
-      root.setProperty('--aurora-3', `color-mix(in srgb, ${c} 14%, transparent)`);
     }
   }
 
