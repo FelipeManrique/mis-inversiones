@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.8.0';
+  const VERSION = '2.8.1';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -482,7 +482,7 @@
   }
   function conPila(cont, primeraVez) {
     if (!S.movs.length) { cont.innerHTML = htmlVacio(); montarDebajo(cont); activarBotonGoogle(cont.querySelector('#vGo')); return; }
-    if (!cont.querySelector('.debajo')) { cont.innerHTML = '<div class="stack-hint">Deslizá el panel ↕ para ver lo tuyo, lo de ella o el total</div><div class="debajo" style="display:grid;gap:12px"></div>'; }
+    if (!cont.querySelector('.debajo')) { cont.innerHTML = `<div class="stack-hint">Deslizá el panel ${UPDOWN} para ver lo tuyo, lo de ella o el total</div><div class="debajo" style="display:grid;gap:12px"></div>`; }
     renderStack(cont);
     renderDebajo();
   }
@@ -551,14 +551,14 @@
     const nom = S.nombres[a.key];
     // en activos que cotizan en dólares (cripto, NVDA…) el oficial ya es el valor en dólares: no repetirlo
     const sub = a.cur === 'USD' ? '' : `${esc(usd(a.valor.ccl))} CCL`;
-    const unidades = C.POR100[a.clase] ? 'VN' : 'u.';
+    const unidades = C.POR100[a.clase] ? 'VN' : a.ticker;   // «0.0065 BTC», «3 SPY», «288 858 VN»
     return `<button class="asset" data-k="${esc(a.key)}" style="${esc(fondoActivo(a))}">
       <div class="a-top"><div class="badge" style="background:${COLOR_CLASE[a.clase] || 'var(--c8)'};font-size:${a.ticker.length > 4 ? 10 : 12}px">${esc(a.ticker.slice(0, 5))}</div>
-        <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · <span class="priv">${esc(C.cantidad(a.qty))} ${unidades}</span>${S.carteras.length > 1 && !S.ajustes.cartera ? ' · ' + esc(Object.keys(a.carteras).map(nombreCartera).filter(Boolean).join(', ')) : ''}</span></div>
-        <div class="a-val priv"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span>${sub ? `<span class="ccl num">${sub}</span>` : ''}</div></div>
+        <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)}</span></div>
+        <div class="a-val priv"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span>${sub ? `<span class="ccl num">${sub}</span>` : ''}<span class="cant num">${esc(C.cantidad(a.qty))} ${esc(unidades)}</span></div></div>
       <div class="spk" data-spk="${esc(a.key)}">${sparkDe(a)}</div>
       <div class="a-row">${q ? `<span class="num">Ahora ${esc(precioF(q.px, q.cur))}</span>${q.pct !== null && q.pct !== undefined ? `<span class="tag ${clsSigno(q.pct, 0.005)}">hoy ${esc(pctf(q.pct / 100))}</span>` : ''}` : '<span class="sinprecio">Sin precio: se muestra al costo</span>'}
-        <span class="sp"></span><span class="num priv" title="Precio promedio de compra: lo que pagaste en promedio por unidad, con comisiones">Prom. compra ${esc(precioF(a.ppc, a.cur))}</span></div>
+        <span class="sp"></span><span class="num priv" title="Precio promedio de compra: lo que pagaste en promedio por unidad, con comisiones">PPC ${esc(precioF(a.ppc, a.cur))}</span></div>
       <div class="a-row priv"><span class="tag ${clsSigno(a.ganancia.ars)}">${esc(conSigno(a.ganancia.ars, ars))} · ${esc(pctf(a.rend.ars))}</span>
         <span class="tag ${clsSigno(a.ganancia.of, 0.005)}">${esc(conSigno(a.ganancia.of, usd))} · ${esc(pctf(a.rend.of))}</span><span class="sp"></span><span>${C.num(a.peso * 100, 1)} %</span></div>
       <div class="weight"><i style="width:${Math.min(100, a.peso * 100).toFixed(1)}%"></i></div>

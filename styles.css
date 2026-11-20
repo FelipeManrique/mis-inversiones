@@ -599,3 +599,5 @@ body.entra-suave main, body.entra-suave .dock { animation: entraSuave .55s var(-
 .fila .updown { width: 15px; height: 15px; fill: none; stroke: var(--label-3); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; flex: none; margin-left: -4px; pointer-events: none; }
 .fila select { padding-right: 0; }
 .fila .mini-sel { background: none; padding: 6px 2px; color: var(--label-2); }
+.a-val .cant { font-size: 12px; line-height: 16px; color: var(--label-2); margin-top: 2px; }
+.stack-hint .updown { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; margin: 0 1px; }
