@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.7.0';
+  const VERSION = '2.7.1';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -63,6 +63,7 @@
     ajustes: { tema: '', intervalo: 30, cartera: '', persona: '' },
   });
   let S = VACIO();
+  const KEY_ACENTO = 'mis-inversiones:acento';   // también sin cifrar: la pantalla del PIN ya sale con tu color
   const KEY_TEMA = 'mis-inversiones:tema';     // se guarda aparte (sin cifrar) para pintar la pantalla del PIN
   const Seg = window.Seguridad;
   function cargar(x) {
@@ -80,7 +81,7 @@
   let tGuardar = null;
   function guardarYa() {
     clearTimeout(tGuardar); tGuardar = null;
-    try { localStorage.setItem(KEY_TEMA, S.ajustes.tema || ''); } catch (e) {}
+    try { localStorage.setItem(KEY_TEMA, S.ajustes.tema || ''); localStorage.setItem(KEY_ACENTO, S.ajustes.acento || ''); } catch (e) {}
     const menor = soloFoto; soloFoto = false;
     if (typeof programarSubida === 'function') programarSubida(menor);
     if (Seg.activo()) { Seg.guardar(S).catch(() => toast('No se pudo guardar en este dispositivo')); return; }
@@ -123,9 +124,12 @@
     const root = document.documentElement.style;
     root.setProperty('--glass-tint', String(Math.min(1, Math.max(0, S.ajustes.vidrio ?? 0.35))));
     root.setProperty('--ui-zoom', S.ajustes.letraGrande ? '1.12' : '1');
+    aplicarAcento(S.ajustes.acento);
     pintarBarraEstado();
-    // color de acento elegido (vacío = el naranja original)
-    const c = S.ajustes.acento;
+  }
+  // Color de acento (vacío = el naranja original). También se usa antes del PIN, en la pantalla de bloqueo.
+  function aplicarAcento(c) {
+    const root = document.documentElement.style;
     ['--accent', '--accent-btn', '--accent-ink', '--accent-tint', '--aurora-1', '--aurora-2', '--aurora-3'].forEach((v) => root.removeProperty(v));   // la aurora sale de --accent en el CSS
     if (c) {
       root.setProperty('--accent', c);
@@ -1228,6 +1232,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   const CHEV = '<svg class="chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg>';
   const filaIr = (id, titulo, sub, derecha) => `<button class="fila" id="${id}"><span class="grow">${titulo}${sub ? `<span class="sub">${sub}</span>` : ''}</span>${derecha || ''}${CHEV}</button>`;
   const punto = (c) => `<span class="punto" style="background:${esc(c)}"></span>`;
+  const UPDOWN = '<svg class="updown" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9.5 4-4 4 4M8 14.5l4 4 4-4"/></svg>';   // ⌃⌄ como en Mis Finanzas
   const opcion = (v, txt, sel) => `<option value="${esc(v)}" ${sel ? 'selected' : ''}>${esc(txt)}</option>`;
 
   function abrirAjustes() {
@@ -1239,12 +1244,12 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     paginaAjustes(`
       <h3 class="sec-t">Preferencias</h3>
       <div class="lista">
-        <label class="fila"><span class="grow">Apariencia</span><select id="aTema">${opcion('', 'Automática', t === '')}${opcion('light', 'Clara', t === 'light')}${opcion('dark', 'Oscura', t === 'dark')}</select></label>
+        <label class="fila"><span class="grow">Apariencia</span><select id="aTema">${opcion('', 'Automática', t === '')}${opcion('light', 'Clara', t === 'light')}${opcion('dark', 'Oscura', t === 'dark')}</select>${UPDOWN}</label>
         <div class="fila apilada"><span>Vidrio<span class="sub">Más transparente o más fácil de leer</span></span>
           <label class="range-row"><span>Transparente</span><input type="range" id="aVidrio" min="0" max="1" step="0.05" value="${S.ajustes.vidrio ?? 0.35}" aria-label="Transparencia del vidrio"><span>Esmerilado</span></label></div>
         ${filaIr('aAcento', 'Color de acento', '', punto(S.ajustes.acento || ACENTOS[0]))}
         <label class="fila"><span class="grow">Letra grande<span class="sub">Agranda textos y botones</span></span><input type="checkbox" id="aGrande" class="switch" ${S.ajustes.letraGrande ? 'checked' : ''}></label>
-        <label class="fila"><span class="grow">Actualizar precios<span class="sub">Mientras la app está abierta</span></span><select id="aInt">${[15, 30, 60].map((x) => opcion(x, 'Cada ' + x + ' s', (S.ajustes.intervalo || 30) === x)).join('')}</select></label>
+        <label class="fila"><span class="grow">Actualizar precios<span class="sub">Mientras la app está abierta</span></span><select id="aInt">${[15, 30, 60].map((x) => opcion(x, 'Cada ' + x + ' s', (S.ajustes.intervalo || 30) === x)).join('')}</select>${UPDOWN}</label>
       </div>
 
       <h3 class="sec-t">Personas</h3>
@@ -1252,7 +1257,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
 
       <h3 class="sec-t">Carteras</h3>
       <div class="lista">${S.carteras.map((c) => `<div class="fila"><span class="grow">${esc(c.nombre)}<span class="sub">${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span>
-          <select class="mini-sel" data-duena="${esc(c.id)}" aria-label="Dueño de ${esc(c.nombre)}"><option value="">Compartida</option>${S.personas.map((p) => opcion(p.id, 'De ' + p.nombre, c.duena === p.id)).join('')}</select>
+          <select class="mini-sel" data-duena="${esc(c.id)}" aria-label="Dueño de ${esc(c.nombre)}"><option value="">Compartida</option>${S.personas.map((p) => opcion(p.id, 'De ' + p.nombre, c.duena === p.id)).join('')}</select>${UPDOWN}
           <button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}
         <button class="fila link" id="aNuevaCart">Nueva cartera</button>
         ${S.carteras.length > 1 ? '<button class="fila link" id="aMover">Mover movimientos entre carteras</button>' : ''}</div>
@@ -1269,7 +1274,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
       <div class="lista">
         <label class="fila"><span class="grow">PIN de ingreso<span class="sub">${pin ? 'Activo: tus datos están cifrados' : 'Pide un PIN al abrir y cifra tus datos'}</span></span><input type="checkbox" id="aPinSw" class="switch" ${pin ? 'checked' : ''}></label>
         ${pin ? `<label class="fila"><span class="grow">Face ID<span class="sub">${Seg.bioActivo() ? 'Activo. Si falla, usás el PIN' : 'Abrí la app mirando el teléfono'}</span></span><input type="checkbox" id="aBio" class="switch" ${Seg.bioActivo() ? 'checked' : ''}></label>
-          <label class="fila"><span class="grow">Bloquear al salir</span><select id="aBloq">${[[0, 'Al instante'], [60, 'Después de 1 min'], [300, 'Después de 5 min']].map((x) => opcion(x[0], x[1], (S.ajustes.bloqueo ?? 60) === x[0])).join('')}</select></label>
+          <label class="fila"><span class="grow">Bloquear al salir</span><select id="aBloq">${[[0, 'Al instante'], [60, 'Después de 1 min'], [300, 'Después de 5 min']].map((x) => opcion(x[0], x[1], (S.ajustes.bloqueo ?? 60) === x[0])).join('')}</select>${UPDOWN}</label>
           <button class="fila link" id="aPinCambiar">Cambiar PIN</button>` : ''}
       </div>
 
@@ -1869,7 +1874,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     const instalada = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
     if (!instalada) return;
     clearTimeout(tGuardar); tGuardar = null;
-    try { localStorage.setItem(KEY_TEMA, S.ajustes.tema || ''); } catch (e) {}
+    try { localStorage.setItem(KEY_TEMA, S.ajustes.tema || ''); localStorage.setItem(KEY_ACENTO, S.ajustes.acento || ''); } catch (e) {}
     try { if (Seg.activo()) { await Seg.guardar(S); await Seg.sesionCorta(); } else localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     try { sessionStorage.setItem('mis-inversiones:volverA', 'ajustes'); } catch (e) {}
     // fundido suave al color de fondo del tema NUEVO (así no se ve el salto), y recién ahí se reinicia
@@ -1988,7 +1993,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
 
   /* ================= arranque ================= */
   (async function iniciar() {
-    try { const t = localStorage.getItem(KEY_TEMA); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    try { const t = localStorage.getItem(KEY_TEMA); if (t) document.documentElement.dataset.theme = t; aplicarAcento(localStorage.getItem(KEY_ACENTO) || ''); } catch (e) {}
     pintarBarraEstado();   // antes del PIN, para que la pantalla de bloqueo ya tenga la barra del color correcto
     if (Seg.activo()) cargar((await Seg.retomarSesion()) || await Seg.pedirPin()); else cargar();
     aplicarTema(); listo = true;

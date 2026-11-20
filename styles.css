@@ -595,3 +595,7 @@ body.entra-suave main, body.entra-suave .dock { animation: entraSuave .55s var(-
 .toast #toastMsg { display: flex; align-items: center; gap: 10px; }
 .toast #toastMsg::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
 .toast button { background: color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 999px; padding: 6px 12px; }
+/* flechitas ⌃⌄ al lado del valor de cada desplegable (como Mis Finanzas) */
+.fila .updown { width: 15px; height: 15px; fill: none; stroke: var(--label-3); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; flex: none; margin-left: -4px; pointer-events: none; }
+.fila select { padding-right: 0; }
+.fila .mini-sel { background: none; padding: 6px 2px; color: var(--label-2); }

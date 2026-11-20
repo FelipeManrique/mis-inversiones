@@ -43,6 +43,7 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] v2.5.0: Ajustes es la 5.ª pestaña de la isla de abajo (como Mis Finanzas); en esa vista se oculta la barra superior (`body[data-vista=ajustes]`) y el título grande queda primero bajo la hora. Sin ruedita arriba ni flecha de volver.
 - [x] v2.6.0: Ajustes con el formato de Mis Finanzas (filas compactas agrupadas: desplegables para Apariencia/Actualizar/Bloquear, interruptores para Letra grande/PIN/Face ID; tarjetas para color de acento, cada persona y API Gemini; Gemini va al final arriba de Versión; «Nueva cartera»). Isla: + al principio (a pedido), pestañas Activos·Resumen·Seguir·Historial·Ajustes. Cambio de tema con velo del color nuevo y aparición suave. Avisos con tinte del acento.
 - [x] v2.7.0: activos compartidos con mezcla orgánica (base con transición ancha ±20 % + corrientes radiales de cada color que cruzan la frontera + remolino de la mezcla; posiciones derivadas de un hash de la clave del activo, estables; centro en la proporción real).
+- [x] v2.7.1: flechitas ⌃⌄ en los desplegables de Ajustes (como Mis Finanzas). El color de acento se guarda también sin cifrar (`mis-inversiones:acento`, como el tema) para que la pantalla del PIN salga con tu color.
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente
