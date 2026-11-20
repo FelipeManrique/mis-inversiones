@@ -470,3 +470,10 @@ input.switch:checked::after { transform: translateX(20px); }
 .a-name .whos { display: flex; overflow: visible; white-space: normal; }
 .a-name .whos .who { display: inline-flex; overflow: visible; }
 .a-name .whos .who i { display: block; }
+
+/* Ajustes como pantalla propia */
+.page-head { display: flex; align-items: center; margin: -4px 0 -6px -6px; }
+.back { display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; color: var(--accent-ink); font-size: 17px; padding: 6px; }
+.back svg.i { width: 22px; height: 22px; stroke-width: 2.4; }
+.large-title { margin: 0 4px 4px; font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: -.5px; }
+#v-ajustes .card { background: var(--surface) !important; }

@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.7.2';
+  const VERSION = '1.8.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -350,7 +350,8 @@
 
   /* ================= vistas ================= */
   let vista = 'activos', filtroClase = '';
-  const VISTAS = ['activos', 'resumen', 'seguir', 'movs'];
+  const VISTAS = ['activos', 'resumen', 'seguir', 'movs', 'ajustes'];
+  let vistaPrev = 'activos';
 
   function render() {
     ultimoCalc = calc();
@@ -360,7 +361,8 @@
     if (vista === 'activos') renderActivos();
     else if (vista === 'resumen') renderResumen();
     else if (vista === 'seguir') renderSeguir();
-    else renderMovs();
+    else if (vista === 'movs') renderMovs();
+    else if (vista === 'ajustes') pintarNube();   // Ajustes no se redibuja solo (no pisar lo que estás escribiendo)
     pintarVivo();
   }
 
@@ -1124,9 +1126,19 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   }
 
   /* ---------- ajustes ---------- */
+  // Ajustes es una pantalla propia (como en Mis Finanzas), no una hoja desde abajo
+  function paginaAjustes(html, montar) {
+    const el = $('v-ajustes');
+    el.innerHTML = `<div class="page-head"><button class="back" id="ajVolver"><svg class="i" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg>${esc({ activos: 'Activos', resumen: 'Resumen', seguir: 'Seguimiento', movs: 'Movimientos' }[vistaPrev] || 'Volver')}</button></div>
+      <h2 class="large-title">Ajustes</h2>` + html;
+    el.querySelector('#ajVolver').onclick = () => irA(vistaPrev || 'activos');
+    montar(el);
+  }
   function abrirAjustes() {
+    cerrarHoja(true);
+    if (vista !== 'ajustes') { vistaPrev = vista; irA('ajustes'); }
     const t = S.ajustes.tema || '';
-    abrirHoja('Ajustes', `
+    paginaAjustes(`
       <div class="card" style="background:var(--surface-2)"><h2>Apariencia</h2>
         <div class="seg" id="aTema"><button data-val="" class="${t === '' ? 'on' : ''}">Automático</button><button data-val="light" class="${t === 'light' ? 'on' : ''}">Claro</button><button data-val="dark" class="${t === 'dark' ? 'on' : ''}">Oscuro</button></div>
         <span class="hint" style="padding:6px 0 0">Vidrio: más transparente o más fácil de leer</span>
@@ -1199,7 +1211,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         if (r.ok) { gemini.set(k); body.querySelector('#aKey').value = ''; body.querySelector('#aKey').placeholder = '•••••••• (guardada)'; toast('Clave guardada'); }
       };
       const kt = body.querySelector('#aKeyTest'); if (kt) kt.onclick = (e) => probar(gemini.get(), e.target);
-      const kd = body.querySelector('#aKeyDel'); if (kd) kd.onclick = () => { gemini.set(''); cerrarHoja(); toast('Clave quitada'); };
+      const kd = body.querySelector('#aKeyDel'); if (kd) kd.onclick = () => { gemini.set(''); abrirAjustes(); toast('Clave quitada'); };
       body.querySelectorAll('[data-ren]').forEach((b) => { b.onclick = () => { const c = S.carteras.find((x) => x.id === b.dataset.ren); const n = (prompt('Nuevo nombre', c.nombre) || '').trim(); if (!n) return; c.nombre = n.slice(0, 40); guardar(); abrirAjustes(); render(); }; });
       body.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => {
         const id = b.dataset.del, n = S.movs.filter((m) => m.cartera === id).length, destino = S.carteras.find((c) => c.id !== id);
@@ -1232,10 +1244,10 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
       };
       body.querySelector('#aExp').onclick = exportar;
       body.querySelector('#aImp').onclick = importar;
-      const dm = body.querySelector('#aDemo'); if (dm) dm.onclick = () => { ACCIONES.borrarDemo(); cerrarHoja(); };
+      const dm = body.querySelector('#aDemo'); if (dm) dm.onclick = () => { ACCIONES.borrarDemo(); abrirAjustes(); };
       body.querySelector('#aBorrar').onclick = () => {
         if (!confirm('¿Borrar todos los movimientos, carteras y ajustes de este dispositivo? No se puede deshacer (salvo que tengas una copia).')) return;
-        const tema = S.ajustes.tema, g = S._g; S = VACIO(); S.ajustes.tema = tema; if (g) S._g = g; guardar(); prevNum.clear(); cerrarHoja(); render(); toast('Datos borrados');
+        const tema = S.ajustes.tema, g = S._g; S = VACIO(); S.ajustes.tema = tema; if (g) S._g = g; guardar(); prevNum.clear(); abrirAjustes(); render(); toast('Datos borrados');
       };
     });
   }
@@ -1650,7 +1662,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   }
   $('tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (b && b.dataset.v !== vista) irA(b.dataset.v); });
   $('fab').onclick = abrirCargar;
-  $('btnAjustes').onclick = abrirAjustes;
+  $('btnAjustes').onclick = () => (vista === 'ajustes' ? irA(vistaPrev || 'activos') : abrirAjustes());
   $('fxbar').onclick = () => { if (vista !== 'seguir') irA('seguir'); };
   $('btnCartera').onclick = abrirCarteras;
   $('fileIn').addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; cerrarHoja(true); procesarCapturas(fs); });

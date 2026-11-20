@@ -28,11 +28,13 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] v1.6.0: entrar con Google + copia cifrada automática en Drive (drive.appdata), igual que Mis Finanzas. Reusa el cliente OAuth, el intermediario Apps Script y la página de retorno de mis-finanzas (sin cambios en GCP; la pantalla de Google dice «Mis Finanzas»). Archivos `mis-inversiones.enc.json` + diarias `mis-inversiones-AAAA-MM-DD.enc.json` (60 días); no tocan los de Mis Finanzas (`finanzas*`, `mf-fm*`). Contraseña de copias ≥ 8, clave en IndexedDB `mis-inversiones` (CryptoKey no exportable). Sube 2,5 s después de cada cambio; la foto diaria del valor, como mucho cada 30 min. Probado con Google/Drive simulados: subir cifrado, recuperar en teléfono nuevo, contraseña incorrecta.
 - [x] v1.7.0: fondo continuo bajo la barra de estado como Mis Finanzas (aurora fija + banda que se funde, sin línea). Apariencia: vidrio transparente↔esmerilado (--glass-tint) y letra grande (--ui-zoom). Personas: nombre + color (paleta + rueda del sistema); se quitaron las letras M/P de la interfaz (siguen sólo para importar lotes viejos). Detalle de cada activo: «Dueño y cartera» con desplegables que cambian todos sus movimientos. Carteras con dueña (compartida / de X); un movimiento nuevo toma la dueña de la cartera elegida.
 - [x] v1.7.1: fondo de cada tarjeta de activo con el color de su dueño; si es de los dos, degradé con el corte en la proporción real (por cantidad).
+- [x] v1.7.2: tarjetas de activos sólo con el color del dueño (sin nombres, pedido de Felipe).
+- [x] v1.8.0: Ajustes es una pantalla propia (vista `ajustes`, botón ‹ volver a la pestaña anterior), como en Mis Finanzas; no se redibuja sola con cada precio.
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente
 - [ ] Probar la lectura con las capturas reales de Felipe (necesita su clave de Gemini).
-- [ ] Desbloqueo con Face ID (WebAuthn PRF) — opcional.
+- [ ] Desbloqueo con Face ID (passkey + extensión PRF que libera la clave; el PIN queda de respaldo). Felipe lo preguntó 2026-11-20.
 - [ ] Movimiento «compra de dólares» (pesos → USD) y transferencias entre carteras.
 
 ## Decisiones
