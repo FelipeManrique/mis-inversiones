@@ -46,6 +46,7 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] v2.7.1: flechitas ⌃⌄ en los desplegables de Ajustes (como Mis Finanzas). El color de acento se guarda también sin cifrar (`mis-inversiones:acento`, como el tema) para que la pantalla del PIN salga con tu color.
 - [x] v2.8.0: ícono nuevo de Claude Design (monograma «MI» de vidrio + flecha), versión OSCURA elegida por Felipe (azul marino, letras naranjas) en todos los tamaños; maskable oscuro hecho del SVG con scale 1.0. Manifest background/theme #0B1630. iOS no deja Liquid Glass animado ni ícono claro/oscuro automático para web apps (sólo nativas). El paquete original está en ~/Downloads/mis-inversiones-icono.zip.
 - [x] v2.8.1: cambios de tarjetas de arriba + flechitas ⌃⌄ en «Deslizá el panel».
+- [x] v2.8.2: «Probar clave» consulta la lista de modelos (instantáneo, sin cuota, tope 8 s) en vez de generar texto (tardaba por el «thinking» y no tenía límite).
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente

@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.8.1';
+  const VERSION = '2.8.2';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1068,20 +1068,20 @@ Devolvé SOLO JSON: {"movimientos":[...]}. Cada movimiento tiene:
 - nota: broker o exchange si se reconoce.
 Los números en las capturas argentinas usan coma decimal y punto de miles (1.234,56 = 1234.56): devolvelos como número JSON. No inventes datos: si algo no se ve, null. Si una captura no tiene movimientos, no agregues nada por ella.`;
   }
-  // Prueba mínima de la clave: una pregunta de texto cortita (no gasta casi cuota)
+  // Prueba de la clave: sólo pregunta a Google si la clave es válida (lista de modelos). Es instantáneo,
+  // no gasta cuota y no espera a que el modelo "piense". Tope de 8 s.
   async function probarGemini(key) {
-    const body = { contents: [{ parts: [{ text: 'Respondé sólo con la palabra OK.' }] }], generationConfig: { temperature: 0, maxOutputTokens: 5 } };
-    let ultimo = '';
-    for (const modelo of ['gemini-flash-latest', 'gemini-flash-lite-latest']) {
-      let r;
-      try { r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + modelo + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body) }); }
-      catch (e) { return { ok: false, txt: 'Sin conexión con Google. Revisá internet.' }; }
-      if (r.ok) return { ok: true, txt: 'La clave funciona. Ya podés leer capturas.' };
-      let det = ''; try { det = ((await r.json()).error || {}).status || ''; } catch (e) {}
-      if (r.status === 400 || r.status === 401 || r.status === 403) return { ok: false, txt: det === 'PERMISSION_DENIED' ? 'Google rechazó la clave: puede que la API no esté habilitada en ese proyecto.' : 'La clave no es válida. Copiala de nuevo desde AI Studio.' };
-      ultimo = r.status === 429 ? 'La clave es válida, pero se terminó la cuota gratis de hoy.' : 'Gemini no respondió (' + r.status + '). Probá en un rato.';
-    }
-    return { ok: /válida/.test(ultimo), txt: ultimo };
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
+    let r;
+    try { r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': key }, signal: ctl.signal, cache: 'no-store' }); }
+    catch (e) { clearTimeout(t); return { ok: false, txt: e.name === 'AbortError' ? 'Google no respondió en 8 s. Probá de nuevo en un rato.' : 'Sin conexión con Google. Revisá internet.' }; }
+    clearTimeout(t);
+    if (r.ok) return { ok: true, txt: 'La clave funciona. Ya podés leer capturas.' };
+    let det = ''; try { det = ((await r.json()).error || {}).status || ''; } catch (e) {}
+    if (r.status === 429) return { ok: true, txt: 'La clave es válida, pero se terminó la cuota gratis de hoy.' };
+    if (det === 'PERMISSION_DENIED') return { ok: false, txt: 'Google rechazó la clave: puede que la API no esté habilitada en ese proyecto.' };
+    if (r.status === 400 || r.status === 401 || r.status === 403) return { ok: false, txt: 'La clave no es válida. Copiala de nuevo desde AI Studio.' };
+    return { ok: false, txt: 'Google no respondió bien (' + r.status + '). Probá en un rato.' };
   }
   async function leerConGemini(imgs) {
     const key = gemini.get();
