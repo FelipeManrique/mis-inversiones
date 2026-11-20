@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.6.0';
+  const VERSION = '1.6.1';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -894,6 +894,21 @@ Devolvé SOLO JSON: {"movimientos":[...]}. Cada movimiento tiene:
 - nota: broker o exchange si se reconoce.
 Los números en las capturas argentinas usan coma decimal y punto de miles (1.234,56 = 1234.56): devolvelos como número JSON. No inventes datos: si algo no se ve, null. Si una captura no tiene movimientos, no agregues nada por ella.`;
   }
+  // Prueba mínima de la clave: una pregunta de texto cortita (no gasta casi cuota)
+  async function probarGemini(key) {
+    const body = { contents: [{ parts: [{ text: 'Respondé sólo con la palabra OK.' }] }], generationConfig: { temperature: 0, maxOutputTokens: 5 } };
+    let ultimo = '';
+    for (const modelo of ['gemini-flash-latest', 'gemini-flash-lite-latest']) {
+      let r;
+      try { r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + modelo + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body) }); }
+      catch (e) { return { ok: false, txt: 'Sin conexión con Google. Revisá internet.' }; }
+      if (r.ok) return { ok: true, txt: 'La clave funciona. Ya podés leer capturas.' };
+      let det = ''; try { det = ((await r.json()).error || {}).status || ''; } catch (e) {}
+      if (r.status === 400 || r.status === 401 || r.status === 403) return { ok: false, txt: det === 'PERMISSION_DENIED' ? 'Google rechazó la clave: puede que la API no esté habilitada en ese proyecto.' : 'La clave no es válida. Copiala de nuevo desde AI Studio.' };
+      ultimo = r.status === 429 ? 'La clave es válida, pero se terminó la cuota gratis de hoy.' : 'Gemini no respondió (' + r.status + '). Probá en un rato.';
+    }
+    return { ok: /válida/.test(ultimo), txt: ultimo };
+  }
   async function leerConGemini(imgs) {
     const key = gemini.get();
     const body = { contents: [{ parts: [{ text: promptGemini(imgs.length) }].concat(imgs.map((i) => ({ inline_data: { mime_type: 'image/jpeg', data: i.b64 } }))) }], generationConfig: { responseMimeType: 'application/json', temperature: 0 } };
@@ -1047,7 +1062,8 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
       <div class="card" style="background:var(--surface-2)"><h2>Lectura de capturas (Gemini)</h2>
         <p class="muted" style="font-size:13px">Pegá una clave gratuita de Google AI Studio (<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--accent-ink)">aistudio.google.com/apikey</a>). Queda guardada sólo en este teléfono y no se incluye en las copias. Plan gratis: unas 20 lecturas por día.</p>
         <label class="field"><span>Clave</span><input id="aKey" type="password" autocomplete="off" placeholder="${gemini.get() ? '•••••••• (guardada)' : 'AIza…'}"></label>
-        <div class="btns"><button class="btn sec" id="aKeyOk">Guardar clave</button>${gemini.get() ? '<button class="btn danger" id="aKeyDel">Quitar</button>' : ''}</div></div>
+        <div class="btns"><button class="btn sec" id="aKeyOk">Guardar y probar</button>${gemini.get() ? '<button class="btn gray" id="aKeyTest">Probar clave</button><button class="btn danger" id="aKeyDel">Quitar</button>' : ''}</div>
+        <p class="muted" id="aKeyRes" style="font-size:13px" hidden></p></div>
       <div class="card" style="background:var(--surface-2)"><h2>Carteras</h2>
         <div class="group" style="box-shadow:none;background:transparent">${S.carteras.map((c) => `<div class="item" style="padding:6px 0"><span class="tx"><b>${esc(c.nombre)}</b><span>${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span><button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}</div></div>
       ${htmlNubeAjustes()}
@@ -1075,7 +1091,22 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         S.personas.forEach((p, i) => { p.nombre = body.querySelector(`[data-pn="${i}"]`).value.trim(); p.letra = body.querySelector(`[data-pl="${i}"]`).value.trim().toUpperCase(); });
         guardar(); render(); toast('Nombres guardados');
       };
-      body.querySelector('#aKeyOk').onclick = () => { const k = body.querySelector('#aKey').value.trim(); if (!k) return toast('Pegá la clave'); gemini.set(k); cerrarHoja(); toast('Clave guardada. Ya podés subir capturas.'); };
+      const resKey = body.querySelector('#aKeyRes');
+      const probar = async (k, btn) => {
+        btn.disabled = true; const t = btn.textContent; btn.textContent = 'Probando…';
+        resKey.hidden = false; resKey.style.color = ''; resKey.textContent = 'Consultando a Gemini…';
+        const r = await probarGemini(k);
+        btn.disabled = false; btn.textContent = t;
+        resKey.textContent = (r.ok ? '✓ ' : '✗ ') + r.txt; resKey.style.color = r.ok ? 'var(--gain)' : 'var(--loss)';
+        return r;
+      };
+      body.querySelector('#aKeyOk').onclick = async (e) => {
+        const k = body.querySelector('#aKey').value.trim(); if (!k) return toast('Pegá la clave');
+        if (!/^[A-Za-z0-9_-]{20,}$/.test(k)) return toast('Eso no parece una clave: copiala entera, sin espacios');
+        const r = await probar(k, e.target);
+        if (r.ok) { gemini.set(k); body.querySelector('#aKey').value = ''; body.querySelector('#aKey').placeholder = '•••••••• (guardada)'; toast('Clave guardada'); }
+      };
+      const kt = body.querySelector('#aKeyTest'); if (kt) kt.onclick = (e) => probar(gemini.get(), e.target);
       const kd = body.querySelector('#aKeyDel'); if (kd) kd.onclick = () => { gemini.set(''); cerrarHoja(); toast('Clave quitada'); };
       body.querySelectorAll('[data-ren]').forEach((b) => { b.onclick = () => { const c = S.carteras.find((x) => x.id === b.dataset.ren); const n = (prompt('Nuevo nombre', c.nombre) || '').trim(); if (!n) return; c.nombre = n.slice(0, 40); guardar(); abrirAjustes(); render(); }; });
       body.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => {
