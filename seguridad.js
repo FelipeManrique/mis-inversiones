@@ -60,7 +60,7 @@
     const datos = await abrir(k, sobre);    // error = PIN incorrecto
     clavePin = k; return datos;
   }
-  function quitar() { clavePin = null; localStorage.removeItem(K_SOBRE); }
+  function quitar() { clavePin = null; localStorage.removeItem(K_SOBRE); localStorage.removeItem('mis-inversiones:faceid'); }
 
   /* ---------- pantalla de PIN (teclado propio, como el de iOS) ---------- */
   function teclado(opts) {
@@ -75,7 +75,7 @@
         <div class="lock-dots" aria-live="polite"></div>
         ${opts.elegirLargo ? '<div class="seg lock-len"><button data-l="4" class="on">4 dígitos</button><button data-l="6">6 dígitos</button></div>' : ''}
         <div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button data-d="${d}">${d}</button>`).join('')}
-          <button class="pad-txt" data-x="cancel">${opts.cancelable ? 'Cancelar' : ''}</button><button data-d="0">0</button>
+          ${!opts.cancelable && opts.bio ? `<button class="pad-txt pad-bio" data-x="bio" aria-label="Desbloquear con Face ID">${ICONO_FACE}</button>` : `<button class="pad-txt" data-x="cancel">${opts.cancelable ? 'Cancelar' : ''}</button>`}<button data-d="0">0</button>
           <button class="pad-txt" data-x="del" aria-label="Borrar"><svg class="i" viewBox="0 0 24 24"><path d="M21 5H9l-6 7 6 7h12z"/><path d="m16 9-5 6m0-6 5 6"/></svg></button></div></div>`;
       document.body.appendChild(el);
       const t = el.querySelector('.lock-t'), s = el.querySelector('.lock-s'), dots = el.querySelector('.lock-dots');
@@ -94,12 +94,22 @@
       };
       const cerrar = (v) => { clearTimeout(tEspera); el.classList.add('out'); setTimeout(() => el.remove(), 250); resolve(v); };
       const tecla = async (d) => {
-        if (ocupado || bloqueo()) return;
-        if (d === 'del') { pin = pin.slice(0, -1); pintar(); return; }
-        if (d === 'cancel') { if (opts.cancelable) cerrar(null); return; }
-        if (pin.length >= largo) return;
-        pin += d; pintar();
-        if (pin.length < largo) return;
+        if (ocupado) return;
+        if (d === 'bio') {   // Face ID: si devuelve el PIN, se verifica como si lo hubieras escrito (no cuenta como intento fallido si se cancela)
+          if (!opts.bio) return;
+          ocupado = true; s.textContent = 'Mirá el teléfono…';
+          const p = await opts.bio();
+          ocupado = false;
+          if (!p) { s.textContent = opts.sub || ''; bloqueo(); return; }
+          pin = p.slice(0, largo); pintar();
+        } else {
+          if (bloqueo()) return;
+          if (d === 'del') { pin = pin.slice(0, -1); pintar(); return; }
+          if (d === 'cancel') { if (opts.cancelable) cerrar(null); return; }
+          if (pin.length >= largo) return;
+          pin += d; pintar();
+          if (pin.length < largo) return;
+        }
         ocupado = true; s.textContent = 'Verificando…';
         const error = await opts.alListo(pin);
         ocupado = false;
@@ -113,6 +123,7 @@
       const teclas = (e) => { if (!document.body.contains(el)) { root.removeEventListener('keydown', teclas); return; } if (/^\d$/.test(e.key)) tecla(e.key); else if (e.key === 'Backspace') tecla('del'); else if (e.key === 'Escape') tecla('cancel'); };
       root.addEventListener('keydown', teclas);
       pintar(); bloqueo();
+      if (opts.bio && opts.bioAuto) setTimeout(() => tecla('bio'), 450);   // se intenta solo al abrir
     });
   }
 
@@ -122,8 +133,10 @@
     opts = opts || {};
     const sobre = leerSobre();
     let datos = null;
+    const conBio = !opts.cancelable && !!bioGuardado();
     const ok = await teclado({
-      titulo: opts.titulo || 'Mis Inversiones', sub: opts.sub || 'Ingresá tu PIN', largo: sobre.largo || 4, conLimite: true, cancelable: !!opts.cancelable,
+      titulo: opts.titulo || 'Mis Inversiones', sub: opts.sub || (conBio ? 'Usá Face ID o ingresá tu PIN' : 'Ingresá tu PIN'), largo: sobre.largo || 4, conLimite: true, cancelable: !!opts.cancelable,
+      bio: conBio ? async () => { try { return await pinPorBio(); } catch (e) { return null; } } : null, bioAuto: conBio,
       alListo: async (pin) => {
         try { datos = await probar(pin); intentos.set({ n: 0, hasta: 0 }); return null; } catch (e) {
           const it = intentos.get(); it.n += 1; it.hasta = Date.now() + espera(it.n); intentos.set(it);
@@ -131,8 +144,54 @@
         }
       },
     });
-    return ok ? datos : null;
+    if (!ok) return null;
+    return opts.conPin ? { datos, pin: ok } : datos;
   }
+
+  /* ---------- Face ID (llave de acceso del iPhone + extensión PRF) ----------
+     Al activarlo, el iPhone crea una llave de acceso protegida con tu cara. Esa llave entrega un secreto (PRF)
+     que sólo sale después de Face ID; con él se cifra tu PIN. Al abrir, Face ID → secreto → PIN → datos.
+     Sin tu cara (o el código del iPhone) el PIN no se puede leer. Necesita iOS 18 o más nuevo. */
+  const K_BIO = 'mis-inversiones:faceid';
+  const ICONO_FACE = '<svg class="i" viewBox="0 0 24 24"><path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8M21 16v2.5a2.5 2.5 0 0 1-2.5 2.5H16M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16"/><path d="M9 9v1.5M15 9v1.5M12 9v4.5h-1M9.5 16.5c1.4 1 3.6 1 5 0"/></svg>';
+  function bioGuardado() { try { return JSON.parse(localStorage.getItem(K_BIO)); } catch (e) { return null; } }
+  async function bioDisponible() {
+    try { return !!(root.PublicKeyCredential && navigator.credentials && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; }
+  }
+  async function secretoBio(credId, sal) {
+    const a = await navigator.credentials.get({ publicKey: {
+      challenge: azar(32), rpId: location.hostname, timeout: 60000, userVerification: 'required',
+      allowCredentials: [{ type: 'public-key', id: credId, transports: ['internal', 'hybrid'] }],
+      extensions: { prf: { eval: { first: sal } } } } });
+    const r = a.getClientExtensionResults(), out = r && r.prf && r.prf.results && r.prf.results.first;
+    if (!out) throw new Error('sin_prf');
+    return subtle.importKey('raw', new Uint8Array(out), 'AES-GCM', false, ['encrypt', 'decrypt']);
+  }
+  async function activarBio(pin) {
+    const sal = azar(32);
+    const cred = await navigator.credentials.create({ publicKey: {
+      rp: { name: 'Mis Inversiones', id: location.hostname },
+      user: { id: azar(16), name: 'Mis Inversiones', displayName: 'Mis Inversiones' },
+      challenge: azar(32), timeout: 60000,
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'preferred', userVerification: 'required' },
+      extensions: { prf: { eval: { first: sal } } } } });
+    const ext = cred.getClientExtensionResults() || {};
+    if (!ext.prf || ext.prf.enabled === false) throw new Error('sin_prf');
+    const credId = new Uint8Array(cred.rawId);
+    const k = ext.prf.results && ext.prf.results.first
+      ? await subtle.importKey('raw', new Uint8Array(ext.prf.results.first), 'AES-GCM', false, ['encrypt', 'decrypt'])
+      : await secretoBio(credId, sal);   // algunos iPhone dan el secreto recién al usar la llave
+    const iv = azar(12);
+    const data = await subtle.encrypt({ name: 'AES-GCM', iv }, k, enc.encode(String(pin)));
+    localStorage.setItem(K_BIO, JSON.stringify({ id: b64(credId), sal: b64(sal), iv: b64(iv), data: b64(data) }));
+  }
+  async function pinPorBio() {
+    const g = bioGuardado(); if (!g) return null;
+    const k = await secretoBio(unb64(g.id), unb64(g.sal));
+    return dec.decode(await subtle.decrypt({ name: 'AES-GCM', iv: unb64(g.iv) }, k, unb64(g.data)));
+  }
+  function quitarBio() { localStorage.removeItem(K_BIO); }
 
   // Elegir un PIN nuevo (dos veces). Devuelve el PIN o null.
   async function elegirPin() {
@@ -143,5 +202,6 @@
     return p2 || null;
   }
 
-  root.Seguridad = { activo, activar, guardar, probar, quitar, pedirPin, elegirPin, teclado, sellar, abrir, claveNueva, claveDeSobre, desbloqueada: () => !!clavePin };
+  root.Seguridad = { activo, activar, guardar, probar, quitar, pedirPin, elegirPin, teclado, sellar, abrir, claveNueva, claveDeSobre, desbloqueada: () => !!clavePin,
+    bioDisponible, activarBio, quitarBio, bioActivo: () => !!bioGuardado() };
 })(self);

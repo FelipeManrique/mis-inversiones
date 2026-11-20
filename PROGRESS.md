@@ -31,11 +31,13 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] v1.7.2: tarjetas de activos sólo con el color del dueño (sin nombres, pedido de Felipe).
 - [x] v1.8.0: Ajustes es una pantalla propia (vista `ajustes`, botón ‹ volver a la pestaña anterior), como en Mis Finanzas; no se redibuja sola con cada precio.
 - [x] v1.9.0: color de acento elegible (paleta + rueda; vacío = naranja original) que tiñe botones, pestañas, panel Total, aurora y candado. Tarjetas de activos: división vertical izquierda→derecha con el color de cada dueño en su proporción (--tinte 22 % claro / 30 % oscuro). Activos en dólares (cripto, exterior): sólo «US$ oficial», sin repetir el valor.
+- [x] v2.0.0: Face ID. Llave de acceso del iPhone (WebAuthn, rpId = host) con extensión PRF: el secreto PRF cifra el PIN (AES-GCM) en `mis-inversiones:faceid`; al abrir, Face ID → PIN → datos. Botón en la pantalla del PIN + intento automático; si falla, PIN. Se borra al cambiar o quitar el PIN. Necesita iOS 18+. NO probado con una cara real: en el navegador de Claude se probó hasta «Confirmá tu PIN» (seguir crearía una llave real en la Mac) y la pantalla con Face ID simulado.
+- [x] Ojito en la barra: tapa (blur) montos, cantidades, ganancias y precio promedio; precios y cotizaciones quedan visibles. Preferencia en `mis-inversiones:ocultar`.
+- [x] «PPC» → «Prom. compra» en las tarjetas.
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente
 - [ ] Probar la lectura con las capturas reales de Felipe (necesita su clave de Gemini).
-- [ ] Desbloqueo con Face ID (passkey + extensión PRF que libera la clave; el PIN queda de respaldo). Felipe lo preguntó 2026-11-20.
 - [ ] Movimiento «compra de dólares» (pesos → USD) y transferencias entre carteras.
 
 ## Decisiones

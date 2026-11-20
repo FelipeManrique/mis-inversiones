@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.9.0';
+  const VERSION = '2.0.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -524,12 +524,12 @@
     const unidades = C.POR100[a.clase] ? 'VN' : 'u.';
     return `<button class="asset" data-k="${esc(a.key)}" style="${esc(fondoActivo(a))}">
       <div class="a-top"><div class="badge" style="background:${COLOR_CLASE[a.clase] || 'var(--c8)'};font-size:${a.ticker.length > 4 ? 10 : 12}px">${esc(a.ticker.slice(0, 5))}</div>
-        <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · ${esc(C.cantidad(a.qty))} ${unidades}${S.carteras.length > 1 && !S.ajustes.cartera ? ' · ' + esc(Object.keys(a.carteras).map(nombreCartera).filter(Boolean).join(', ')) : ''}</span></div>
-        <div class="a-val"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span>${sub ? `<span class="ccl num">${sub}</span>` : ''}</div></div>
+        <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · <span class="priv">${esc(C.cantidad(a.qty))} ${unidades}</span>${S.carteras.length > 1 && !S.ajustes.cartera ? ' · ' + esc(Object.keys(a.carteras).map(nombreCartera).filter(Boolean).join(', ')) : ''}</span></div>
+        <div class="a-val priv"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span>${sub ? `<span class="ccl num">${sub}</span>` : ''}</div></div>
       <div class="spk" data-spk="${esc(a.key)}">${sparkDe(a)}</div>
       <div class="a-row">${q ? `<span class="num">Ahora ${esc(precioF(q.px, q.cur))}</span>${q.pct !== null && q.pct !== undefined ? `<span class="tag ${clsSigno(q.pct, 0.005)}">hoy ${esc(pctf(q.pct / 100))}</span>` : ''}` : '<span class="sinprecio">Sin precio: se muestra al costo</span>'}
-        <span class="sp"></span><span class="num">PPC ${esc(precioF(a.ppc, a.cur))}</span></div>
-      <div class="a-row"><span class="tag ${clsSigno(a.ganancia.ars)}">${esc(conSigno(a.ganancia.ars, ars))} · ${esc(pctf(a.rend.ars))}</span>
+        <span class="sp"></span><span class="num priv" title="Precio promedio de compra: lo que pagaste en promedio por unidad, con comisiones">Prom. compra ${esc(precioF(a.ppc, a.cur))}</span></div>
+      <div class="a-row priv"><span class="tag ${clsSigno(a.ganancia.ars)}">${esc(conSigno(a.ganancia.ars, ars))} · ${esc(pctf(a.rend.ars))}</span>
         <span class="tag ${clsSigno(a.ganancia.of, 0.005)}">${esc(conSigno(a.ganancia.of, usd))} · ${esc(pctf(a.rend.of))}</span><span class="sp"></span><span>${C.num(a.peso * 100, 1)} %</span></div>
       <div class="weight"><i style="width:${Math.min(100, a.peso * 100).toFixed(1)}%"></i></div>
     </button>`;
@@ -560,7 +560,7 @@
       <div class="section-title">Activos<span class="sp"></span><button class="link" data-act="refrescar">Actualizar</button></div>
       ${clases.length > 1 ? `<div class="chips"><button data-clase="" class="${filtroClase ? '' : 'on'}">Todos</button>${clases.map((c) => `<button data-clase="${c}" class="${filtroClase === c ? 'on' : ''}"><i style="background:${COLOR_CLASE[c]}"></i>${esc(C.CLASES[c].corto)}</button>`).join('')}</div>` : ''}
       <div class="assets">${lista.map(tarjetaActivo).join('') || '<p class="muted" style="text-align:center">No hay activos abiertos acá.</p>'}</div>
-      ${r.efectivo.ars > 0.5 ? `<div class="card" style="gap:4px"><div class="a-row" style="font-size:15px;color:var(--label)"><b>Efectivo sin invertir</b><span class="sp"></span><b class="num">${esc(ars(r.efectivo.ars))}</b></div><p class="muted" style="font-size:13px">${r.caja.ARS > 0.5 ? esc(ars(r.caja.ARS)) + ' en pesos' : ''}${r.caja.ARS > 0.5 && r.caja.USD > 0.005 ? ' · ' : ''}${r.caja.USD > 0.005 ? esc(usd(r.caja.USD)) + ' en dólares' : ''}. No cuenta como ganancia.</p></div>` : ''}
+      ${r.efectivo.ars > 0.5 ? `<div class="card priv" style="gap:4px"><div class="a-row" style="font-size:15px;color:var(--label)"><b>Efectivo sin invertir</b><span class="sp"></span><b class="num">${esc(ars(r.efectivo.ars))}</b></div><p class="muted" style="font-size:13px">${r.caja.ARS > 0.5 ? esc(ars(r.caja.ARS)) + ' en pesos' : ''}${r.caja.ARS > 0.5 && r.caja.USD > 0.005 ? ' · ' : ''}${r.caja.USD > 0.005 ? esc(usd(r.caja.USD)) + ' en dólares' : ''}. No cuenta como ganancia.</p></div>` : ''}
       ${r.sinPrecio.length ? `<p class="foot">Sin precio en vivo: ${esc(r.sinPrecio.map((a) => a.ticker).join(', '))}. Se muestran al costo (ni ganan ni pierden) hasta que haya precio.</p>` : ''}
       ${r.cerrados.length ? `<div class="section-title">Posiciones cerradas</div><div class="group">${r.cerrados.map((a) => `<button class="item" data-k="${esc(a.key)}"><span class="ic" style="color:${COLOR_CLASE[a.clase]}">${I.chart}</span><span class="tx"><b>${esc(a.ticker)}</b><span>${esc(C.CLASES[a.clase].corto)} · vendida</span></span><span class="rt ${clsSigno(a.realizado.ars)}">${esc(conSigno(a.realizado.ars, ars))}<span>${esc(conSigno(a.realizado.of, usd))} oficial</span></span></button>`).join('')}</div>` : ''}
       <p class="foot">Precios: data912 (BYMA, ~20 s de demora), Binance y dolarapi. Todo en dólar oficial: cada ingreso y compra al oficial de su día, el valor actual al de hoy. Sólo organiza tus datos; no es asesoramiento financiero.</p>`;
@@ -1184,6 +1184,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         ${Seg.activo() ? `<p class="muted" style="font-size:13px">Activo. Tus datos en este teléfono están cifrados con tu PIN (AES-256). Tras 5 intentos fallidos la app hace esperar, cada vez más.</p>
           <span class="hint" style="padding:0">Bloquear al salir de la app</span>
           <div class="seg" id="aBloq">${[[0, 'Al instante'], [60, '1 min'], [300, '5 min']].map((x) => `<button data-val="${x[0]}" class="${(S.ajustes.bloqueo ?? 60) === x[0] ? 'on' : ''}">${x[1]}</button>`).join('')}</div>
+          <label class="toggle-row"><span>Desbloquear con Face ID<small id="aBioTxt">${Seg.bioActivo() ? 'Activo en este teléfono. Si falla, usás el PIN.' : 'Abrí la app mirando el teléfono. El PIN queda de respaldo.'}</small></span><input type="checkbox" id="aBio" class="switch" ${Seg.bioActivo() ? 'checked' : ''}></label>
           <div class="btns"><button class="btn sec" id="aPinCambiar">Cambiar PIN</button><button class="btn danger" id="aPinQuitar">Quitar PIN</button></div>`
         : `<p class="muted" style="font-size:13px">Pedí un PIN cada vez que abras la app. Además, los datos guardados en el teléfono quedan cifrados con ese PIN.</p><button class="btn sec" id="aPinOn">Activar PIN</button>`}
         <p class="muted" style="font-size:13px">Si olvidás el PIN no hay forma de recuperar los datos: bajá cada tanto una copia cifrada.</p></div>
@@ -1259,7 +1260,23 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
       if (pc) pc.onclick = async () => {
         if (!(await Seg.pedirPin({ titulo: 'PIN actual', sub: 'Ingresá el PIN que usás hoy', cancelable: true }))) return;
         const pin = await Seg.elegirPin(); if (!pin) return;
-        await Seg.activar(pin, S); toast('PIN cambiado');
+        const habiaBio = Seg.bioActivo();
+        await Seg.activar(pin, S); Seg.quitarBio(); abrirAjustes();
+        toast(habiaBio ? 'PIN cambiado. Volvé a activar Face ID.' : 'PIN cambiado');
+      };
+      const bio = body.querySelector('#aBio');
+      if (bio) bio.onchange = async () => {
+        if (!bio.checked) { Seg.quitarBio(); abrirAjustes(); toast('Face ID desactivado'); return; }
+        bio.checked = false;
+        if (!(await Seg.bioDisponible())) return toast('Este teléfono no ofrece Face ID a las apps web');
+        const r = await Seg.pedirPin({ titulo: 'Confirmá tu PIN', sub: 'Para activar Face ID', cancelable: true, conPin: true });
+        if (!r) return;
+        window.pausarBloqueo();
+        try { await Seg.activarBio(r.pin); abrirAjustes(); toast('Face ID activado. La próxima vez que abras, mirá el teléfono.'); }
+        catch (e) {
+          Seg.quitarBio();
+          toast(e.message === 'sin_prf' ? 'Tu iPhone no permite Face ID en apps web (hace falta iOS 18 o más nuevo).' : e.name === 'NotAllowedError' ? 'Se canceló Face ID.' : 'No se pudo activar Face ID.');
+        }
       };
       const pq = body.querySelector('#aPinQuitar');
       if (pq) pq.onclick = async () => {
@@ -1688,6 +1705,22 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   }
   $('tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (b && b.dataset.v !== vista) irA(b.dataset.v); });
   $('fab').onclick = abrirCargar;
+  // Ojito: tapa tus montos, cantidades y ganancias (precios y cotizaciones siguen a la vista)
+  const OJO_ABIERTO = '<svg class="i" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const OJO_CERRADO = '<svg class="i" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  function aplicarOjo() {
+    let o = false; try { o = localStorage.getItem('mis-inversiones:ocultar') === '1'; } catch (e) {}
+    document.body.classList.toggle('oculto', o);
+    $('btnOjo').innerHTML = o ? OJO_CERRADO : OJO_ABIERTO;
+    $('btnOjo').setAttribute('aria-pressed', String(o));
+    $('btnOjo').setAttribute('aria-label', o ? 'Mostrar montos' : 'Ocultar montos');
+  }
+  $('btnOjo').onclick = () => {
+    const o = !document.body.classList.contains('oculto');
+    try { localStorage.setItem('mis-inversiones:ocultar', o ? '1' : '0'); } catch (e) {}
+    aplicarOjo(); toast(o ? 'Montos ocultos' : 'Montos visibles');
+  };
+  aplicarOjo();
   $('btnAjustes').onclick = () => (vista === 'ajustes' ? irA(vistaPrev || 'activos') : abrirAjustes());
   $('fxbar').onclick = () => { if (vista !== 'seguir') irA('seguir'); };
   $('btnCartera').onclick = abrirCarteras;

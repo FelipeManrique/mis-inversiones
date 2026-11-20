@@ -488,3 +488,23 @@ input.switch:checked::after { transform: translateX(20px); }
 :root { --tinte: 22%; }
 :root[data-theme="dark"] { --tinte: 30%; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tinte: 30%; } }
+.pad .pad-bio { color: var(--accent-ink); }
+.pad .pad-bio svg.i { width: 34px; height: 34px; stroke-width: 1.6; }
+
+/* ojito: tapar lo propio (montos, cantidades, ganancias); precios y cotizaciones quedan a la vista */
+.priv, .stack .big, .stack .usd, .stack .ccl, .stack .mini .v, .stack .mini .s,
+#v-resumen .sum-card .big, #v-resumen .sum-card .usd, #v-resumen .sum-card .ccl, #v-resumen .sum-card .row2, #v-resumen .sum-card .muted,
+#v-resumen .kv dd, #v-resumen .legend small, #v-resumen .rt, .chart .tip,
+#v-movs .item .rt, #v-movs .item .tx > span, .sheet .kv dd, .sheet .group .item .rt, #v-activos .group .rt { transition: filter .25s var(--ease); }
+body.oculto .priv, body.oculto .stack .big, body.oculto .stack .usd, body.oculto .stack .ccl, body.oculto .stack .mini .v, body.oculto .stack .mini .s,
+body.oculto #v-resumen .sum-card .big, body.oculto #v-resumen .sum-card .usd, body.oculto #v-resumen .sum-card .ccl, body.oculto #v-resumen .sum-card .row2, body.oculto #v-resumen .sum-card .muted,
+body.oculto #v-resumen .kv dd, body.oculto #v-resumen .legend small, body.oculto #v-resumen .rt, body.oculto .chart .tip,
+body.oculto #v-movs .item .rt, body.oculto #v-movs .item .tx > span, body.oculto .sheet .kv dd, body.oculto .sheet .group .item .rt, body.oculto #v-activos .group .rt {
+  filter: blur(8px); user-select: none; -webkit-user-select: none; pointer-events: none;
+}
+@media (max-width: 420px) {
+  .topbar { gap: 4px; padding-right: 8px; }
+  .topbar h1 { font-size: 20px; letter-spacing: -.4px; }
+  .topbar .icon-btn { width: 36px; height: 40px; }
+  .topbar .chip { padding: 0 9px; font-size: 14px; }
+}
