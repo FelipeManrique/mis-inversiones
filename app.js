@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.8.0';
+  const VERSION = '1.9.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -70,6 +70,7 @@
     if (x && Array.isArray(x.movs)) S = Object.assign(VACIO(), x, { ajustes: Object.assign(VACIO().ajustes, x.ajustes) });
     S.personas.forEach((p, i) => { if (!p.color) p.color = COLORES_PERSONA[i % COLORES_PERSONA.length]; });
   }
+  const ACENTOS = ['#FF8D28', '#0088FF', '#34C759', '#00A2B0', '#6155F5', '#FF2D55', '#CB30E0', '#FFB800'];
   const COLORES_PERSONA = ['#FF8D28', '#FF5C8A', '#00A2B0', '#6155F5', '#34A853', '#FFB800'];
   const colorDe = (pid) => ((S.personas.find((p) => p.id === pid) || {}).color) || '#8E8A85';
   // Etiqueta de persona: punto de su color + nombre (reemplaza a las letras M/P)
@@ -107,6 +108,18 @@
     const root = document.documentElement.style;
     root.setProperty('--glass-tint', String(Math.min(1, Math.max(0, S.ajustes.vidrio ?? 0.35))));
     root.setProperty('--ui-zoom', S.ajustes.letraGrande ? '1.12' : '1');
+    // color de acento elegido (vacío = el naranja original)
+    const c = S.ajustes.acento;
+    ['--accent', '--accent-btn', '--accent-ink', '--accent-tint', '--aurora-1', '--aurora-2', '--aurora-3'].forEach((v) => root.removeProperty(v));
+    if (c) {
+      root.setProperty('--accent', c);
+      root.setProperty('--accent-btn', `color-mix(in srgb, ${c} 88%, #000)`);
+      root.setProperty('--accent-ink', `color-mix(in srgb, ${c} 72%, var(--label))`);
+      root.setProperty('--accent-tint', `color-mix(in srgb, ${c} 17%, transparent)`);
+      root.setProperty('--aurora-1', `color-mix(in srgb, ${c} 28%, transparent)`);
+      root.setProperty('--aurora-2', `color-mix(in srgb, ${c} 12%, transparent)`);
+      root.setProperty('--aurora-3', `color-mix(in srgb, ${c} 14%, transparent)`);
+    }
   }
 
   /* ================= aviso ================= */
@@ -495,21 +508,24 @@
   // Fondo de la tarjeta con el color del dueño; si es de los dos, mezcla con el corte en su proporción
   function fondoActivo(a) {
     const ps = partesActivo(a); if (!ps.length) return '';
-    const t = (c, k) => `color-mix(in srgb, ${c} ${k}%, transparent)`;
-    if (ps.length === 1) { const c = ps[0].p.color; return `background-image:linear-gradient(100deg, ${t(c, 24)} 0%, ${t(c, 9)} 100%)`; }
-    const c1 = ps[0].p.color, c2 = ps[1].p.color, m = ps[0].f * 100, an = 14;
-    return `background-image:linear-gradient(100deg, ${t(c1, 22)} 0%, ${t(c1, 16)} ${Math.max(0, m - an).toFixed(1)}%, ${t(c2, 16)} ${Math.min(100, m + an).toFixed(1)}%, ${t(c2, 22)} 100%)`;
+    const t = (c) => `color-mix(in srgb, ${c} var(--tinte), transparent)`;
+    if (ps.length === 1) { const c = ps[0].p.color; return `background-image:linear-gradient(90deg, ${t(c)}, ${t(c)})`; }
+    // división vertical, de izquierda a derecha: cada uno ocupa su porcentaje, con un borde suave corto
+    const c1 = ps[0].p.color, c2 = ps[1].p.color, m = ps[0].f * 100, an = 2.5;
+    return `background-image:linear-gradient(90deg, ${t(c1)} 0%, ${t(c1)} ${Math.max(0, m - an).toFixed(1)}%, ${t(c2)} ${Math.min(100, m + an).toFixed(1)}%, ${t(c2)} 100%)`;
   }
+
 
   function tarjetaActivo(a) {
     const q = a.cotiz, cl = C.CLASES[a.clase] || { corto: a.clase };
     const nom = S.nombres[a.key];
-    const sub = a.cur === 'USD' ? `${esc(usd(a.valorUSD))} en dólares` : `${esc(usd(a.valor.ccl))} CCL`;
+    // en activos que cotizan en dólares (cripto, NVDA…) el oficial ya es el valor en dólares: no repetirlo
+    const sub = a.cur === 'USD' ? '' : `${esc(usd(a.valor.ccl))} CCL`;
     const unidades = C.POR100[a.clase] ? 'VN' : 'u.';
     return `<button class="asset" data-k="${esc(a.key)}" style="${esc(fondoActivo(a))}">
       <div class="a-top"><div class="badge" style="background:${COLOR_CLASE[a.clase] || 'var(--c8)'};font-size:${a.ticker.length > 4 ? 10 : 12}px">${esc(a.ticker.slice(0, 5))}</div>
         <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · ${esc(C.cantidad(a.qty))} ${unidades}${S.carteras.length > 1 && !S.ajustes.cartera ? ' · ' + esc(Object.keys(a.carteras).map(nombreCartera).filter(Boolean).join(', ')) : ''}</span></div>
-        <div class="a-val"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span><span class="ccl num">${sub}</span></div></div>
+        <div class="a-val"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span>${sub ? `<span class="ccl num">${sub}</span>` : ''}</div></div>
       <div class="spk" data-spk="${esc(a.key)}">${sparkDe(a)}</div>
       <div class="a-row">${q ? `<span class="num">Ahora ${esc(precioF(q.px, q.cur))}</span>${q.pct !== null && q.pct !== undefined ? `<span class="tag ${clsSigno(q.pct, 0.005)}">hoy ${esc(pctf(q.pct / 100))}</span>` : ''}` : '<span class="sinprecio">Sin precio: se muestra al costo</span>'}
         <span class="sp"></span><span class="num">PPC ${esc(precioF(a.ppc, a.cur))}</span></div>
@@ -725,7 +741,7 @@
         <dt>Cantidad</dt><dd class="num">${esc(C.cantidad(a.qty))} ${C.POR100[clase] ? 'VN' : ''}</dd>
         <dt>Precio promedio de compra</dt><dd class="num">${esc(precioF(a.ppc, a.cur))}</dd>
         <dt>Invertido</dt><dd class="num">${esc(ars(a.costo.ars))}<small>${esc(usd(a.costo.of))} oficial del día de compra</small></dd>
-        <dt>Vale hoy</dt><dd class="num">${esc(ars(a.valor.ars))}<small>${esc(usd(a.valor.of))} oficial · ${esc(usd(a.valor.ccl))} CCL</small></dd>
+        <dt>Vale hoy</dt><dd class="num">${esc(ars(a.valor.ars))}<small>${esc(usd(a.valor.of))} oficial${a.cur === 'USD' ? '' : ' · ' + esc(usd(a.valor.ccl)) + ' CCL'}</small></dd>
         <dt>Ganancia</dt><dd class="num ${clsSigno(a.ganancia.ars)}">${esc(conSigno(a.ganancia.ars, ars))} · ${esc(pctf(a.rend.ars))}<small>${esc(conSigno(a.ganancia.of, usd))} · ${esc(pctf(a.rend.of))} en dólares</small></dd>
         ${Math.abs(a.realizado.ars) > 0.5 ? `<dt>Realizada en ventas</dt><dd class="num ${clsSigno(a.realizado.ars)}">${esc(conSigno(a.realizado.ars, ars))}</dd>` : ''}
         ${Math.abs(a.rentas.ars) > 0.5 ? `<dt>Rentas cobradas</dt><dd class="num pos">${esc(conSigno(a.rentas.ars, ars))}</dd>` : ''}
@@ -1143,6 +1159,9 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         <div class="seg" id="aTema"><button data-val="" class="${t === '' ? 'on' : ''}">Automático</button><button data-val="light" class="${t === 'light' ? 'on' : ''}">Claro</button><button data-val="dark" class="${t === 'dark' ? 'on' : ''}">Oscuro</button></div>
         <span class="hint" style="padding:6px 0 0">Vidrio: más transparente o más fácil de leer</span>
         <label class="range-row"><span>Transparente</span><input type="range" id="aVidrio" min="0" max="1" step="0.05" value="${S.ajustes.vidrio ?? 0.35}" aria-label="Transparencia del vidrio"><span>Esmerilado</span></label>
+        <span class="hint" style="padding:6px 0 0">Color de acento</span>
+        <div class="paleta" id="aAcento">${ACENTOS.map((c, i) => `<button class="sw${(S.ajustes.acento || '') === (i ? c : '') ? ' on' : ''}" data-ac="${i ? c : ''}" style="background:${c}" aria-label="${i ? 'Acento ' + c : 'Naranja original'}"></button>`).join('')}
+          <label class="sw rueda${S.ajustes.acento && !ACENTOS.includes(S.ajustes.acento) ? ' on' : ''}" aria-label="Elegir otro color"><input type="color" id="aAcentoRueda" value="${esc(S.ajustes.acento || '#FF8D28')}"></label></div>
         <label class="toggle-row"><span>Letra grande<small>Agranda textos y botones</small></span><input type="checkbox" id="aGrande" class="switch" ${S.ajustes.letraGrande ? 'checked' : ''}></label></div>
       <div class="card" style="background:var(--surface-2)"><h2>Actualizar precios cada</h2>
         <div class="seg" id="aInt">${[15, 30, 60].map((s) => `<button data-val="${s}" class="${S.ajustes.intervalo === s ? 'on' : ''}">${s} s</button>`).join('')}</div>
@@ -1179,6 +1198,13 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
       const vid = body.querySelector('#aVidrio');
       vid.oninput = () => { S.ajustes.vidrio = +vid.value; aplicarTema(); };
       vid.onchange = () => guardar();
+      const ponerAcento = (c) => {
+        S.ajustes.acento = c; aplicarTema(); guardar();
+        body.querySelectorAll('#aAcento [data-ac]').forEach((b) => b.classList.toggle('on', b.dataset.ac === c));
+        body.querySelector('#aAcentoRueda').parentElement.classList.toggle('on', !!c && !ACENTOS.includes(c));
+      };
+      body.querySelectorAll('#aAcento [data-ac]').forEach((b) => { b.onclick = () => ponerAcento(b.dataset.ac); });
+      body.querySelector('#aAcentoRueda').oninput = (e) => ponerAcento(e.target.value);
       body.querySelector('#aGrande').onchange = (e) => { S.ajustes.letraGrande = e.target.checked; aplicarTema(); guardar(); };
       const colores = S.personas.map((p) => p.color);
       const marcar = (i) => {

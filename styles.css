@@ -477,3 +477,14 @@ input.switch:checked::after { transform: translateX(20px); }
 .back svg.i { width: 22px; height: 22px; stroke-width: 2.4; }
 .large-title { margin: 0 4px 4px; font-size: 34px; line-height: 41px; font-weight: 700; letter-spacing: -.5px; }
 #v-ajustes .card { background: var(--surface) !important; }
+
+/* el panel Total, el candado y las sombras siguen al color de acento */
+.hero.vivid { background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 82%, #000) 0%, var(--accent) 50%, color-mix(in srgb, var(--accent) 72%, #fff) 100%); }
+:root[data-theme="dark"] .hero.vivid:not(.persona) { background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 55%, #000) 0%, color-mix(in srgb, var(--accent) 82%, #000) 50%, var(--accent) 100%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hero.vivid:not(.persona) { background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 55%, #000) 0%, color-mix(in srgb, var(--accent) 82%, #000) 50%, var(--accent) 100%); } }
+.stack { box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 20%, transparent), 0 18px 44px color-mix(in srgb, var(--accent) 26%, transparent); }
+.lock-ic { background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 85%, #000), color-mix(in srgb, var(--accent) 75%, #fff)); }
+/* intensidad del color del dueño en las tarjetas de activos */
+:root { --tinte: 22%; }
+:root[data-theme="dark"] { --tinte: 30%; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --tinte: 30%; } }

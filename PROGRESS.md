@@ -30,6 +30,7 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] v1.7.1: fondo de cada tarjeta de activo con el color de su dueño; si es de los dos, degradé con el corte en la proporción real (por cantidad).
 - [x] v1.7.2: tarjetas de activos sólo con el color del dueño (sin nombres, pedido de Felipe).
 - [x] v1.8.0: Ajustes es una pantalla propia (vista `ajustes`, botón ‹ volver a la pestaña anterior), como en Mis Finanzas; no se redibuja sola con cada precio.
+- [x] v1.9.0: color de acento elegible (paleta + rueda; vacío = naranja original) que tiñe botones, pestañas, panel Total, aurora y candado. Tarjetas de activos: división vertical izquierda→derecha con el color de cada dueño en su proporción (--tinte 22 % claro / 30 % oscuro). Activos en dólares (cripto, exterior): sólo «US$ oficial», sin repetir el valor.
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente
