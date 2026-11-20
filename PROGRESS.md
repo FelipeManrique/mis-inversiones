@@ -35,6 +35,7 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] Ojito en la barra: tapa (blur) montos, cantidades, ganancias y precio promedio; precios y cotizaciones quedan visibles. Preferencia en `mis-inversiones:ocultar`.
 - [x] «PPC» → «Prom. compra» en las tarjetas.
 - [x] v2.0.1: barra de estado del iPhone (theme-color) = fondo real de la app, se actualiza al cambiar Claro/Oscuro/Automático y antes del PIN. Antes seguía el modo del teléfono → franja negra si la app estaba en Claro. Pendiente confirmar en el iPhone que iOS la repinta en vivo.
+- [x] v2.1.0: barra de estado como Mis Finanzas (se dejan las dos meta theme-color con su media y se les cambia el color según el tema; borde de arriba del fondo = color de la barra, también en la pantalla del PIN). Confirmación propia (hoja) antes de cualquier borrado o reemplazo; borrar cartera muestra cuántos movimientos tiene y a dónde van, doble toque y Deshacer. Nueva herramienta «Mover movimientos entre carteras» (tildar, «De capturas», Deshacer). Archivo `tipo: restaurar-cartera` {cartera:{id,nombre}, ids:[…]} que recrea una cartera y le devuelve esos movimientos sin tocar nada más.
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente

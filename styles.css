@@ -508,3 +508,15 @@ body.oculto #v-movs .item .rt, body.oculto #v-movs .item .tx > span, body.oculto
   .topbar .icon-btn { width: 36px; height: 40px; }
   .topbar .chip { padding: 0 9px; font-size: 14px; }
 }
+/* como Mis Finanzas: el borde de arriba del fondo es exactamente del color de la barra de estado (sin corte),
+   y la aurora aparece recién más abajo */
+body::after {
+  content: ""; position: fixed; inset: 0 0 auto 0; z-index: -1; pointer-events: none;
+  height: calc(env(safe-area-inset-top, 0px) + 120px);
+  background: linear-gradient(to bottom, var(--bg) 0%, color-mix(in srgb, var(--bg) 82%, transparent) 18%, color-mix(in srgb, var(--bg) 55%, transparent) 42%,
+    color-mix(in srgb, var(--bg) 25%, transparent) 68%, color-mix(in srgb, var(--bg) 7%, transparent) 88%, transparent 100%);
+}
+.lock { background:
+    linear-gradient(to bottom, var(--bg) 0, color-mix(in srgb, var(--bg) 70%, transparent) 70px, transparent 160px),
+    radial-gradient(70% 45% at 0% 0%, var(--aurora-1), transparent 70%), radial-gradient(60% 45% at 100% 100%, var(--aurora-3), transparent 70%),
+    var(--bg); }

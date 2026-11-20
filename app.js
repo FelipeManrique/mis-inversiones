@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.0.1';
+  const VERSION = '2.1.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -105,13 +105,15 @@
   // Barra de estado del iPhone (hora, wifi): siempre del color de fondo REAL de la app, no del modo del teléfono.
   // Si la app está en Claro y el iPhone en Oscuro (o al revés), sin esto queda una franja negra/blanca arriba.
   function pintarBarraEstado() {
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#F7F2EC';
-    let metas = document.querySelectorAll('meta[name="theme-color"]');
-    metas.forEach((m, i) => { if (i) m.remove(); });
-    let m = document.querySelector('meta[name="theme-color"]');
-    if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
-    m.removeAttribute('media'); m.setAttribute('content', bg);
+    // igual que Mis Finanzas: se dejan las DOS etiquetas (claro y oscuro, cada una con su media) y sólo se les
+    // cambia el color; el iPhone toma ese cambio en vivo (si se borran o se quita el media, no lo repinta)
+    const t = (S && S.ajustes && S.ajustes.tema) || document.documentElement.dataset.theme || '';
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+      const oscuro = t ? t === 'dark' : /dark/.test(m.getAttribute('media') || '');
+      m.setAttribute('content', oscuro ? '#0B0907' : '#F7F2EC');
+    });
   }
+
   try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => pintarBarraEstado()); } catch (e) {}
   function aplicarTema() {
     const t = S.ajustes.tema;
@@ -119,7 +121,7 @@
     const root = document.documentElement.style;
     root.setProperty('--glass-tint', String(Math.min(1, Math.max(0, S.ajustes.vidrio ?? 0.35))));
     root.setProperty('--ui-zoom', S.ajustes.letraGrande ? '1.12' : '1');
-    requestAnimationFrame(pintarBarraEstado);
+    pintarBarraEstado();
     // color de acento elegido (vacío = el naranja original)
     const c = S.ajustes.acento;
     ['--accent', '--accent-btn', '--accent-ink', '--accent-tint', '--aurora-1', '--aurora-2', '--aurora-3'].forEach((v) => root.removeProperty(v));
@@ -567,7 +569,7 @@
     const clases = [...new Set(r.abiertos.map((a) => a.clase))];
     const lista = r.abiertos.filter((a) => !filtroClase || a.clase === filtroClase);
     const demo = S.movs.some((m) => m.demo);
-    return `${demo ? `<div class="banner"><span class="sp">Estás viendo datos de ejemplo.</span><button class="link" data-act="borrarDemo">Borrarlos</button></div>` : ''}
+    return `${demo ? `<div class="banner"><span class="sp">Estás viendo datos de ejemplo.</span><button class="link" data-act="borrarDemoConfirmado">Borrarlos</button></div>` : ''}
       ${cinta(r)}
       <div class="section-title">Activos<span class="sp"></span><button class="link" data-act="refrescar">Actualizar</button></div>
       ${clases.length > 1 ? `<div class="chips"><button data-clase="" class="${filtroClase ? '' : 'on'}">Todos</button>${clases.map((c) => `<button data-clase="${c}" class="${filtroClase === c ? 'on' : ''}"><i style="background:${COLOR_CLASE[c]}"></i>${esc(C.CLASES[c].corto)}</button>`).join('')}</div>` : ''}
@@ -670,7 +672,7 @@
     $('addSeguir').onclick = abrirSeguir;
     const a2 = $('addSeguir2'); if (a2) a2.onclick = abrirSeguir;
     $('v-seguir').querySelectorAll('[data-ver]').forEach((el) => { el.onclick = (e) => { if (e.target.closest('[data-quitar]')) return; const [cl, t] = el.dataset.ver.split('|'); abrirActivo(C.clave(cl, t), { clase: cl, ticker: t }); }; });
-    $('v-seguir').querySelectorAll('[data-quitar]').forEach((b) => { b.onclick = () => { const [cl, t] = b.dataset.quitar.split('|'); S.seguir = S.seguir.filter((w) => !(w.clase === cl && w.ticker.toUpperCase() === t)); guardar(); render(); toast('Dejaste de seguir ' + t); }; });
+    $('v-seguir').querySelectorAll('[data-quitar]').forEach((b) => { b.onclick = async () => { const [cl, t] = b.dataset.quitar.split('|'); if (!(await confirmar('Dejar de seguir', `¿Sacar <b>${esc(t)}</b> de tu lista de seguimiento?`, 'Dejar de seguir'))) return; S.seguir = S.seguir.filter((w) => !(w.clase === cl && w.ticker.toUpperCase() === t)); guardar(); render(); toast('Dejaste de seguir ' + t); }; });
     cargarSparks();
   }
 
@@ -839,6 +841,19 @@
     };
   }
 
+  // Confirmación antes de borrar o reemplazar algo (siempre, pedido de Felipe)
+  function confirmar(titulo, textoHtml, boton, peligro) {
+    return new Promise((resolve) => {
+      let listo = false;
+      abrirHoja(titulo, `<p style="margin:0;font-size:16px;line-height:22px">${textoHtml}</p>
+        <button class="btn ${peligro === false ? '' : 'danger'} wide" id="cfOk">${esc(boton || 'Borrar')}</button>
+        <button class="btn gray wide" id="cfNo">Cancelar</button>`, (body) => {
+        body.querySelector('#cfOk').onclick = () => { listo = true; cerrarHoja(); resolve(true); };
+        body.querySelector('#cfNo').onclick = () => { listo = true; cerrarHoja(); resolve(false); };
+      }, () => { if (!listo) resolve(false); });
+    });
+  }
+
   /* ---------- formulario de movimiento ---------- */
   const CAMPOS_POR_TIPO = {
     ingreso: ['monto', 'moneda', 'pesos'], retiro: ['monto', 'moneda'],
@@ -934,7 +949,8 @@
         await guardarMovs([x]); cerrarHoja(); toast(nuevo ? 'Movimiento guardado' : 'Cambios guardados');
       };
       const b = body.querySelector('#fBorrar');
-      if (b) b.onclick = () => {
+      if (b) b.onclick = async () => {
+        if (!(await confirmar('Borrar movimiento', `¿Borrar este movimiento (${esc(TIPOS[mov.tipo].nombre.toLowerCase())}${mov.ticker ? ' de ' + esc(mov.ticker) : ''} del ${esc(fechaCorta(mov.fecha))})?`, 'Borrar movimiento'))) return;
         const copia = S.movs.slice();
         S.movs = S.movs.filter((x) => x.id !== mov.id); guardar(); cerrarHoja(); render();
         toast('Movimiento borrado', 'Deshacer', () => { S.movs = copia; guardar(); render(); });
@@ -1190,7 +1206,8 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         <div class="btns"><button class="btn sec" id="aKeyOk">Guardar y probar</button>${gemini.get() ? '<button class="btn gray" id="aKeyTest">Probar clave</button><button class="btn danger" id="aKeyDel">Quitar</button>' : ''}</div>
         <p class="muted" id="aKeyRes" style="font-size:13px" hidden></p></div>
       <div class="card" style="background:var(--surface-2)"><h2>Carteras</h2>
-        <div class="group" style="box-shadow:none;background:transparent">${S.carteras.map((c) => `<div class="item" style="padding:6px 0"><span class="tx"><b>${esc(c.nombre)}</b><span>${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span><select class="mini-sel" data-duena="${esc(c.id)}" aria-label="Dueño de ${esc(c.nombre)}"><option value="">Compartida</option>${S.personas.map((p) => `<option value="${esc(p.id)}" ${c.duena === p.id ? 'selected' : ''}>De ${esc(p.nombre)}</option>`).join('')}</select><button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}</div></div>
+        <div class="group" style="box-shadow:none;background:transparent">${S.carteras.map((c) => `<div class="item" style="padding:6px 0"><span class="tx"><b>${esc(c.nombre)}</b><span>${S.movs.filter((m) => m.cartera === c.id).length} movimientos</span></span><select class="mini-sel" data-duena="${esc(c.id)}" aria-label="Dueño de ${esc(c.nombre)}"><option value="">Compartida</option>${S.personas.map((p) => `<option value="${esc(p.id)}" ${c.duena === p.id ? 'selected' : ''}>De ${esc(p.nombre)}</option>`).join('')}</select><button class="link" data-ren="${esc(c.id)}">Renombrar</button>${S.carteras.length > 1 ? `<button class="link" style="color:var(--loss)" data-del="${esc(c.id)}">Borrar</button>` : ''}</div>`).join('')}</div>
+        ${S.carteras.length > 1 ? '<button class="btn sec" id="aMover">Mover movimientos entre carteras</button>' : ''}<div></div></div>
       ${htmlNubeAjustes()}
       <div class="card" style="background:var(--surface-2)"><h2>PIN de ingreso</h2>
         ${Seg.activo() ? `<p class="muted" style="font-size:13px">Activo. Tus datos en este teléfono están cifrados con tu PIN (AES-256). Tras 5 intentos fallidos la app hace esperar, cada vez más.</p>
@@ -1250,13 +1267,10 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         if (r.ok) { gemini.set(k); body.querySelector('#aKey').value = ''; body.querySelector('#aKey').placeholder = '•••••••• (guardada)'; toast('Clave guardada'); }
       };
       const kt = body.querySelector('#aKeyTest'); if (kt) kt.onclick = (e) => probar(gemini.get(), e.target);
-      const kd = body.querySelector('#aKeyDel'); if (kd) kd.onclick = () => { gemini.set(''); abrirAjustes(); toast('Clave quitada'); };
+      const kd = body.querySelector('#aKeyDel'); if (kd) kd.onclick = async () => { if (!(await confirmar('Quitar clave', '¿Quitar la clave de Gemini de este teléfono? Vas a tener que pegarla de nuevo para leer capturas.', 'Quitar clave'))) return; gemini.set(''); abrirAjustes(); toast('Clave quitada'); };
       body.querySelectorAll('[data-ren]').forEach((b) => { b.onclick = () => { const c = S.carteras.find((x) => x.id === b.dataset.ren); const n = (prompt('Nuevo nombre', c.nombre) || '').trim(); if (!n) return; c.nombre = n.slice(0, 40); guardar(); abrirAjustes(); render(); }; });
-      body.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => {
-        const id = b.dataset.del, n = S.movs.filter((m) => m.cartera === id).length, destino = S.carteras.find((c) => c.id !== id);
-        if (!confirm(`¿Borrar la cartera? ${n ? `Sus ${n} movimientos pasan a «${destino.nombre}».` : ''}`)) return;
-        S.movs.forEach((m) => { if (m.cartera === id) m.cartera = destino.id; }); S.carteras = S.carteras.filter((c) => c.id !== id); if (S.ajustes.cartera === id) S.ajustes.cartera = ''; guardar(); abrirAjustes(); render();
-      }; });
+      body.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => borrarCartera(b.dataset.del); });
+      const mv = body.querySelector('#aMover'); if (mv) mv.onclick = () => moverMovimientos();
       montarNubeAjustes(body);
       body.querySelectorAll('#aBloq button').forEach((b) => { b.onclick = () => { S.ajustes.bloqueo = +b.dataset.val; guardar(); body.querySelectorAll('#aBloq button').forEach((x) => x.classList.toggle('on', x === b)); }; });
       const pon = body.querySelector('#aPinOn');
@@ -1299,9 +1313,9 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
       };
       body.querySelector('#aExp').onclick = exportar;
       body.querySelector('#aImp').onclick = importar;
-      const dm = body.querySelector('#aDemo'); if (dm) dm.onclick = () => { ACCIONES.borrarDemo(); abrirAjustes(); };
-      body.querySelector('#aBorrar').onclick = () => {
-        if (!confirm('¿Borrar todos los movimientos, carteras y ajustes de este dispositivo? No se puede deshacer (salvo que tengas una copia).')) return;
+      const dm = body.querySelector('#aDemo'); if (dm) dm.onclick = async () => { if (!(await confirmar('Borrar ejemplo', '¿Borrar los datos de ejemplo? Tus movimientos reales no se tocan.', 'Borrar ejemplo'))) return; ACCIONES.borrarDemo(); abrirAjustes(); };
+      body.querySelector('#aBorrar').onclick = async () => {
+        if (!(await confirmar('Borrar todo', `Se borran <b>todos</b> los movimientos (${S.movs.length}), carteras y ajustes de este teléfono. No se puede deshacer, salvo que tengas una copia en Drive o un archivo.`, 'Borrar todo'))) return;
         const tema = S.ajustes.tema, g = S._g; S = VACIO(); S.ajustes.tema = tema; if (g) S._g = g; guardar(); prevNum.clear(); abrirAjustes(); render(); toast('Datos borrados');
       };
     });
@@ -1348,9 +1362,10 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
         const pw = await pedirContrasena('Abrir copia', false); if (!pw) return;
         try { x = await Seg.abrir(await Seg.claveDeSobre(pw, x), x); } catch (e) { return toast('Esa contraseña no abre la copia'); }
       }
+      if (x && x.tipo === 'restaurar-cartera' && x.cartera && Array.isArray(x.ids)) return restaurarCartera(x);
       if (!x || !Array.isArray(x.movs)) return toast('Ese archivo no es una copia válida');
       if (x.tipo === 'movimientos') return agregarLote(x.movs);
-      if (!confirm(`¿Reemplazar lo de este dispositivo por la copia (${x.movs.length} movimientos)?`)) return;
+      if (!(await confirmar('Reemplazar datos', `Todo lo de este teléfono (<b>${S.movs.length} movimientos</b>) se reemplaza por la copia (<b>${x.movs.length} movimientos</b>).`, 'Reemplazar'))) return;
       delete x.app; delete x.exportado; delete x._g;
       const g = S._g;
       S = Object.assign(VACIO(), x, { ajustes: Object.assign(VACIO().ajustes, x.ajustes) }); if (g) S._g = g;
@@ -1669,7 +1684,72 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     on('#nAhora', async () => { await subir(true); toast(estadoNube().txt); });
     on('#nRest', restaurarDeDrive);
     on('#nPass', cambiarContrasenaCopias);
-    on('#nOff', async () => { if (!confirm('¿Desconectar Google? Las copias quedan en tu Drive; tus datos siguen en este teléfono.')) return; await desconectarNube(); abrirAjustes(); toast('Google desconectado'); });
+    on('#nOff', async () => { if (!(await confirmar('Desconectar Google', 'Las copias quedan en tu Drive y tus datos siguen en este teléfono, pero los cambios nuevos ya no se suben.', 'Desconectar'))) return; await desconectarNube(); abrirAjustes(); toast('Google desconectado'); });
+  }
+
+  // Borrar una cartera: dice cuántos movimientos tiene, a dónde van, pide dos toques y deja deshacer
+  function borrarCartera(id) {
+    const c = S.carteras.find((x) => x.id === id); if (!c) return;
+    const n = S.movs.filter((m) => m.cartera === id).length, otras = S.carteras.filter((x) => x.id !== id);
+    abrirHoja('Borrar cartera', `<p style="margin:0;font-size:16px;line-height:22px">Vas a borrar la cartera <b>${esc(c.nombre)}</b>${n ? `, que tiene <b>${n} movimiento${n === 1 ? '' : 's'}</b>. Los movimientos no se borran: pasan a otra cartera.` : '. No tiene movimientos.'}</p>
+      ${n ? `<label class="field"><span>Sus movimientos pasan a</span><select id="bcDest">${otras.map((o) => `<option value="${esc(o.id)}">${esc(o.nombre)}</option>`).join('')}</select></label>` : ''}
+      <button class="btn danger wide" id="bcOk">Borrar «${esc(c.nombre)}»</button>
+      <button class="btn gray wide" id="bcNo">Cancelar</button>`, (body) => {
+      body.querySelector('#bcNo').onclick = () => cerrarHoja();
+      const b = body.querySelector('#bcOk');
+      b.onclick = () => {
+        if (!b.dataset.armado) { b.dataset.armado = 1; b.textContent = 'Tocá de nuevo para borrar'; return; }
+        const antes = { carteras: JSON.parse(JSON.stringify(S.carteras)), movs: S.movs.map((m) => [m.id, m.cartera]), sel: S.ajustes.cartera };
+        const dest = n ? body.querySelector('#bcDest').value : null;
+        S.movs.forEach((m) => { if (m.cartera === id) m.cartera = dest; });
+        S.carteras = otras; if (S.ajustes.cartera === id) S.ajustes.cartera = '';
+        guardar(); cerrarHoja(); if (vista === 'ajustes') abrirAjustes(); render();
+        toast('Cartera «' + c.nombre + '» borrada', 'Deshacer', () => {
+          const mp = new Map(antes.movs); S.movs.forEach((m) => { if (mp.has(m.id)) m.cartera = mp.get(m.id); });
+          S.carteras = antes.carteras; S.ajustes.cartera = antes.sel; guardar(); if (vista === 'ajustes') abrirAjustes(); render(); toast('Cartera restaurada');
+        });
+      };
+    });
+  }
+  // Mover movimientos de una cartera a otra (tildando cuáles)
+  function moverMovimientos(desde) {
+    desde = desde || S.carteras[0].id;
+    const titulo = (m) => `${TIPOS[m.tipo].nombre}${m.ticker ? ' ' + m.ticker.toUpperCase() : ''}`;
+    const monto = (m) => (m.tipo === 'compra' || m.tipo === 'venta') ? (m.moneda === 'USD' ? usd : ars)(+m.cantidad * +m.precio / C.factor(m.clase)) : (m.moneda === 'USD' ? usd : ars)(+m.monto || 0);
+    const lista = S.movs.filter((m) => m.cartera === desde).sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+    abrirHoja('Mover movimientos', `<div class="cols"><label class="field"><span>Desde</span><select id="mmDesde">${S.carteras.map((c) => `<option value="${esc(c.id)}" ${c.id === desde ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select></label>
+        <label class="field"><span>Hacia</span><select id="mmHacia">${S.carteras.filter((c) => c.id !== desde).map((c) => `<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join('')}<option value="__nueva">Nueva cartera…</option></select></label></div>
+      <div class="btns"><button class="btn gray" id="mmTodos">Todos</button><button class="btn gray" id="mmNada">Ninguno</button><button class="btn gray" id="mmCapt">De capturas</button></div>
+      <div class="group">${lista.map((m) => `<label class="item"><input type="checkbox" data-mm="${esc(m.id)}" style="width:22px;height:22px;flex:none"><span class="tx"><b>${esc(titulo(m))}</b><span>${esc(fechaCorta(m.fecha))}${m.origen === 'captura' ? ' · desde captura' : ''}</span></span><span class="rt num">${esc(monto(m))}</span></label>`).join('') || '<p class="muted" style="padding:14px">Esta cartera no tiene movimientos.</p>'}</div>
+      <button class="btn wide" id="mmOk">Mover</button>`, (body) => {
+      body.querySelector('#mmDesde').onchange = (e) => moverMovimientos(e.target.value);
+      const cajas = () => [...body.querySelectorAll('[data-mm]')];
+      body.querySelector('#mmTodos').onclick = () => cajas().forEach((c) => { c.checked = true; });
+      body.querySelector('#mmNada').onclick = () => cajas().forEach((c) => { c.checked = false; });
+      body.querySelector('#mmCapt').onclick = () => cajas().forEach((c) => { c.checked = (S.movs.find((m) => m.id === c.dataset.mm) || {}).origen === 'captura'; });
+      body.querySelector('#mmOk').onclick = async () => {
+        const ids = cajas().filter((c) => c.checked).map((c) => c.dataset.mm);
+        if (!ids.length) return toast('Tildá los movimientos que querés mover');
+        let hacia = body.querySelector('#mmHacia').value;
+        if (hacia === '__nueva') { const nom = (prompt('Nombre de la nueva cartera') || '').trim(); if (!nom) return; hacia = uid(); S.carteras.push({ id: hacia, nombre: nom.slice(0, 40) }); }
+        const antes = S.movs.filter((m) => ids.includes(m.id)).map((m) => [m.id, m.cartera]);
+        S.movs.forEach((m) => { if (ids.includes(m.id)) m.cartera = hacia; });
+        guardar(); cerrarHoja(); if (vista === 'ajustes') abrirAjustes(); render();
+        toast(`${ids.length} movimiento${ids.length === 1 ? '' : 's'} movido${ids.length === 1 ? '' : 's'} a ${nombreCartera(hacia)}`, 'Deshacer', () => {
+          const mp = new Map(antes); S.movs.forEach((m) => { if (mp.has(m.id)) m.cartera = mp.get(m.id); }); guardar(); if (vista === 'ajustes') abrirAjustes(); render();
+        });
+      };
+    });
+  }
+  // Archivo de restauración: crea una cartera (si falta) y le devuelve esos movimientos. No toca nada más.
+  async function restaurarCartera(x) {
+    const ids = new Set(x.ids || []), esta = S.movs.filter((m) => ids.has(m.id));
+    if (!esta.length) return toast('No encontré esos movimientos en este teléfono');
+    const ya = S.carteras.find((c) => c.id === x.cartera.id);
+    if (!(await confirmar('Restaurar cartera', `${ya ? 'Vuelven' : 'Se crea de nuevo la cartera <b>' + esc(x.cartera.nombre) + '</b> y vuelven'} a ella <b>${esta.length} movimientos</b>. No se cambia nada más (dueños, montos ni fechas).`, 'Restaurar', false))) return;
+    if (!ya) S.carteras.unshift({ id: x.cartera.id, nombre: x.cartera.nombre });
+    esta.forEach((m) => { m.cartera = x.cartera.id; });
+    guardar(); if (vista === 'ajustes') abrirAjustes(); render(); toast(`Cartera «${x.cartera.nombre}» restaurada con ${esta.length} movimientos`);
   }
 
   /* ---------- datos de ejemplo ---------- */
@@ -1702,6 +1782,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     manual: () => abrirCargar(),
     demo: () => cargarDemo(),
     refrescar: () => actualizar(true),
+    borrarDemoConfirmado: async () => { if (await confirmar('Borrar ejemplo', '¿Borrar los datos de ejemplo? Tus movimientos reales no se tocan.', 'Borrar ejemplo')) ACCIONES.borrarDemo(); },
     borrarDemo: () => { S.movs = S.movs.filter((m) => !m.demo); S.snaps = {}; guardar(); prevNum.clear(); $('v-activos').innerHTML = ''; $('v-resumen').innerHTML = ''; render(); toast('Datos de ejemplo borrados'); },
   };
 
@@ -1777,6 +1858,6 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     if (nube.pendingSession) { empezarReclamo(); reclamar(); }
     if (nubeOn() && nube.pending) subir();
   })();
-  window.App = { estado: () => S, calc: () => ultimoCalc, actualizar, normalizar, revisar, agregarLote };
+  window.App = { estado: () => S, calc: () => ultimoCalc, actualizar, normalizar, revisar, agregarLote, restaurarCartera };
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
