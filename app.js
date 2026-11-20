@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '2.4.0';
+  const VERSION = '2.5.0';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -1208,9 +1208,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
   // Ajustes es una pantalla propia (como en Mis Finanzas), no una hoja desde abajo
   function paginaAjustes(html, montar) {
     const el = $('v-ajustes');
-    el.innerHTML = `<div class="page-head"><button class="back" id="ajVolver"><svg class="i" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></svg>${esc({ activos: 'Activos', resumen: 'Resumen', seguir: 'Seguimiento', movs: 'Movimientos' }[vistaPrev] || 'Volver')}</button></div>
-      <h2 class="large-title">Ajustes</h2>` + html;
-    el.querySelector('#ajVolver').onclick = () => irA(vistaPrev || 'activos');
+    el.innerHTML = `<h2 class="large-title">Ajustes</h2>` + html;
     montar(el);
   }
   function abrirAjustes() {
@@ -1854,7 +1852,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
 
   /* ================= navegación ================= */
   function irA(v) {
-    vista = v;
+    vista = v; document.body.dataset.vista = v;   // en Ajustes se oculta la barra de arriba (como en Mis Finanzas)
     VISTAS.forEach((x) => { $('v-' + x).hidden = x !== v; });
     document.querySelectorAll('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
     // la pila vive en Activos y en Resumen: se reconstruye al cambiar
@@ -1862,7 +1860,7 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     window.scrollTo({ top: 0 });
     render();
   }
-  $('tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (b && b.dataset.v !== vista) irA(b.dataset.v); });
+  $('tabbar').addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (!b || b.dataset.v === vista) return; if (b.dataset.v === 'ajustes') abrirAjustes(); else irA(b.dataset.v); });
   $('fab').onclick = abrirCargar;
   // Ojito: tapa tus montos, cantidades y ganancias (precios y cotizaciones siguen a la vista)
   const OJO_ABIERTO = '<svg class="i" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -1880,7 +1878,6 @@ Los números en las capturas argentinas usan coma decimal y punto de miles (1.23
     aplicarOjo(); toast(o ? 'Montos ocultos' : 'Montos visibles');
   };
   aplicarOjo();
-  $('btnAjustes').onclick = () => (vista === 'ajustes' ? irA(vistaPrev || 'activos') : abrirAjustes());
   $('fxbar').onclick = () => { if (vista !== 'seguir') irA('seguir'); };
   $('btnCartera').onclick = abrirCarteras;
   $('fileIn').addEventListener('change', (e) => { const fs = [...e.target.files]; e.target.value = ''; cerrarHoja(true); procesarCapturas(fs); });

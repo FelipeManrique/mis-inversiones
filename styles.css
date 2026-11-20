@@ -543,3 +543,9 @@ body::after {
   --aurora-3: color-mix(in srgb, color-mix(in srgb, var(--accent) 55%, #FF2D55) 30%, transparent);
   --aurora-4: color-mix(in srgb, color-mix(in srgb, var(--accent) 50%, #6155F5) 14%, transparent);
 } }
+
+/* Ajustes es una pestaña: sin barra de arriba, el título grande queda primero bajo la hora */
+body[data-vista="ajustes"] .topbar { display: none; }
+body[data-vista="ajustes"] main { padding-top: calc(env(safe-area-inset-top) + 14px); }
+.tabbar button { min-width: 58px; }
+@media (max-width: 400px) { .tabbar button { min-width: 0; padding: 6px 7px 5px; font-size: 9.5px; } .tabbar button svg.i { width: 22px; height: 22px; } .dock { gap: 8px; padding: 0 8px; } }

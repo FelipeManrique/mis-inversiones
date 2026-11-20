@@ -40,6 +40,7 @@ Creada 2026-11-19. **Publicada:** https://felipemanrique.github.io/mis-inversion
 - [x] v2.2.0: en «Dueño y cartera» de cada activo, «La parte de cada uno, a su cartera»: mueve los movimientos de cada persona a la cartera elegida; los compartidos se dividen en uno por persona (`id-persona`, cantidades/montos × su %), con confirmación y Deshacer. «Mover movimientos» filtra por persona (para llevar los ingresos de cada uno). Ajustes muestra la versión y «Buscar actualización» (update del SW + borra cachés + recarga).
 - [x] v2.3.0: aurora visible otra vez (el `html {background}` de la v1.7 la tapaba: ahora como Mis Finanzas, sin fondo en html) y con 4 manchas derivadas de --accent. Meta color-scheme que acompaña al tema. Confirmado por Felipe: iOS NO repinta la franja de estado en vivo (sólo al abrir).
 - [x] v2.4.0: al cambiar Claro/Oscuro/Automático en la app instalada, reinicio rápido (fundido 0,18 s) que vuelve a Ajustes; con PIN no lo vuelve a pedir: la CryptoKey del PIN se guarda 15 s en IndexedDB `mis-inversiones-sesion` y se borra al usarse (un reinicio común sí pide PIN; probado).
+- [x] v2.5.0: Ajustes es la 5.ª pestaña de la isla de abajo (como Mis Finanzas); en esa vista se oculta la barra superior (`body[data-vista=ajustes]`) y el título grande queda primero bajo la hora. Sin ruedita arriba ni flecha de volver.
 - [x] Probado: tests de Node, check-shell, offline en Chrome real, 375 px claro/oscuro, PIN (activar/quitar/cambiar/fallos).
 
 ## Pendiente
