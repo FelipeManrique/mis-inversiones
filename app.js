@@ -6,7 +6,7 @@
   const KEY = 'mis-inversiones:v1';
   const KEY_GEMINI = 'mis-inversiones:gemini';
   const KEY_Q = 'mis-inversiones:cotizaciones';
-  const VERSION = '1.7.1';
+  const VERSION = '1.7.2';
   const ESP = ' ';
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -506,7 +506,7 @@
     const unidades = C.POR100[a.clase] ? 'VN' : 'u.';
     return `<button class="asset" data-k="${esc(a.key)}" style="${esc(fondoActivo(a))}">
       <div class="a-top"><div class="badge" style="background:${COLOR_CLASE[a.clase] || 'var(--c8)'};font-size:${a.ticker.length > 4 ? 10 : 12}px">${esc(a.ticker.slice(0, 5))}</div>
-        <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · ${esc(C.cantidad(a.qty))} ${unidades}${S.carteras.length > 1 && !S.ajustes.cartera ? ' · ' + esc(Object.keys(a.carteras).map(nombreCartera).filter(Boolean).join(', ')) : ''}</span>${etiquetaTitular(a)}</div>
+        <div class="a-name"><b>${esc(a.ticker)}</b><span>${esc(nom || cl.corto)} · ${esc(C.cantidad(a.qty))} ${unidades}${S.carteras.length > 1 && !S.ajustes.cartera ? ' · ' + esc(Object.keys(a.carteras).map(nombreCartera).filter(Boolean).join(', ')) : ''}</span></div>
         <div class="a-val"><b class="num">${esc(ars(a.valor.ars))}</b><span class="num">${esc(usd(a.valor.of))} oficial</span><span class="ccl num">${sub}</span></div></div>
       <div class="spk" data-spk="${esc(a.key)}">${sparkDe(a)}</div>
       <div class="a-row">${q ? `<span class="num">Ahora ${esc(precioF(q.px, q.cur))}</span>${q.pct !== null && q.pct !== undefined ? `<span class="tag ${clsSigno(q.pct, 0.005)}">hoy ${esc(pctf(q.pct / 100))}</span>` : ''}` : '<span class="sinprecio">Sin precio: se muestra al costo</span>'}
